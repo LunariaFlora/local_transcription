@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>音频转写工作台</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>音频转写工作台</h1>
+          <p class="subcopy">把视频或音频放进来，选用在线或本地方式进行转写。</p>
+        </div>
+        <div class="top-actions">
+          <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
+              <path d="M19.2 13.1c.1-.4.1-.7.1-1.1s0-.7-.1-1.1l2-1.5-2-3.5-2.4 1a8.3 8.3 0 0 0-1.9-1.1L14.6 3H9.4l-.4 2.8c-.7.3-1.3.6-1.9 1.1l-2.4-1-2 3.5 2 1.5c-.1.4-.1.7-.1 1.1s0 .7.1 1.1l-2 1.5 2 3.5 2.4-1c.6.5 1.2.8 1.9 1.1l.4 2.8h5.2l.4-2.8c.7-.3 1.3-.6 1.9-1.1l2.4 1 2-3.5-2.1-1.5Z" />
+            </svg>
+          </button>
+          <button id="openOutputsBtn" class="icon-btn" title="打开导出文件夹" aria-label="打开导出文件夹">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 7.5h6.2l1.7 2h9.1v9.7c0 1-.8 1.8-1.8 1.8H5.3c-1 0-1.8-.8-1.8-1.8V7.5Z" />
+              <path d="M3.5 7.5V5.8C3.5 4.8 4.3 4 5.3 4h4.2l1.7 2h7.5c1 0 1.8.8 1.8 1.8v1.7" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <nav class="view-switch" aria-label="页面切换">
+        <button id="showTranscribe" class="switch-btn active">转写</button>
+        <button id="showYoutube" class="switch-btn">YouTube</button>
+        <button id="showPostprocess" class="switch-btn">后处理</button>
+      </nav>
+
+      <section id="transcribeView" class="view active">
+        <article id="workbenchCard" class="card workbench reveal">
+          <div class="workbench-grid">
+            <section class="upload-zone">
+              <div class="section-title">
+                <h3>导入文件</h3>
+                <span id="inputCount">0 个文件</span>
+              </div>
+              <div id="dropZone" class="drop-zone">
+                <input id="fileInput" type="file" multiple />
+                <strong>拖入音频或视频</strong>
+                <span>或点击选择文件</span>
+              </div>
+              <ul id="inputsList" class="compact-list"></ul>
+            </section>
+
+            <div class="right-stack">
+              <div id="transcribeStatusSlot" class="status-slot"></div>
+              <section class="route-zone">
+                <div class="section-title">
+                  <h3>选择转写方式</h3>
+                </div>
+
+                <label class="route-option selected" data-route="api">
+                  <input type="radio" name="route" value="api" checked />
+                  <span>
+                    <strong>在线 API 转写</strong>
+                    <small>使用 Groq Whisper 进行转写。</small>
+                  </span>
+                </label>
+
+                <label class="route-option" data-route="local">
+                  <input type="radio" name="route" value="local" />
+                  <span>
+                    <strong>本地转写</strong>
+                    <small>使用电脑本地进行转写。</small>
+                    <span id="modelPicker" class="model-picker disabled">
+                      <span>本地模型</span>
+                      <div class="model-options" aria-label="本地模型">
+                        <button type="button" class="model-chip active" data-model="small">small</button>
+                        <button type="button" class="model-chip" data-model="medium">medium</button>
+                      </div>
+                    </span>
+                  </span>
+                </label>
+
+                <button id="startTranscribe" class="glow-btn wide">开始转写</button>
+                <button id="stopBtn" class="ghost-btn danger wide">停止当前任务</button>
+              </section>
+            </div>
+          </div>
+
+          <div id="doneActions" class="done-actions" hidden>
+            <button id="continueTranscribe" class="ghost-btn">继续转写</button>
+            <button id="goPostprocess" class="glow-btn">进入后处理</button>
+          </div>
+        </article>
+
+        <article class="card results-card reveal">
+          <div class="section-title">
+            <h3>最近结果</h3>
+            <span id="outputCount">0 个结果</span>
+          </div>
+          <p>完成后点击打开导出文件夹，查看 transcript.txt。</p>
+          <div class="result-actions">
+            <button id="openOutputsBtn2" class="ghost-btn">打开 outputs</button>
+            <button id="refreshBtn" class="ghost-btn">刷新</button>
+          </div>
+          <ul id="outputsList" class="compact-list outputs"></ul>
+        </article>
+      </section>
+
+      <section id="youtubeView" class="view">
+        <div id="youtubeStatusSlot" class="status-slot youtube-status-slot"></div>
+
+        <article class="card youtube-card reveal">
+          <div class="section-title">
+            <h3>YouTube 导入</h3>
+            <div class="section-actions">
+              <button id="youtubeHelpBtn" class="help-dot" title="查看 YouTube 导入教程" aria-label="查看 YouTube 导入教程">?</button>
+              <span id="youtubeCount">0 个视频，已选 0</span>
+            </div>
+          </div>
+          <p class="youtube-note">
+            扫描稍后观看、喜欢的视频和收藏夹需要 YouTube 登录态。推荐先导出 YouTube cookies.txt 并在这里上传；这样不用关闭 Chrome，也不用直接读取 Chrome 加密数据库。粘贴公开视频链接下载通常不需要勾选“下载时使用 Chrome 登录态”。
+          </p>
+          <div class="youtube-grid">
+            <section class="youtube-controls">
+              <div class="cookie-import">
+                <span id="youtubeCookieStatus">未检测 cookies.txt</span>
+                <label class="ghost-btn cookie-btn">
+                  上传 cookies.txt
+                  <input id="youtubeCookieFile" type="file" accept=".txt" />
+                </label>
+              </div>
+              <div class="playlist-row">
+                <button id="scanWatchLater" class="ghost-btn">稍后观看</button>
+                <button id="scanLiked" class="ghost-btn">喜欢的视频</button>
+                <button id="scanFavorites" class="ghost-btn">收藏夹</button>
+              </div>
+              <label class="playlist-input">
+                <span>播放列表链接</span>
+                <input id="playlistUrl" type="text" placeholder="https://www.youtube.com/playlist?list=..." />
+              </label>
+              <div class="youtube-options">
+                <label>
+                  <span>读取数量</span>
+                  <input id="youtubeLimit" type="number" min="1" max="300" value="80" />
+                </label>
+                <label class="check-row">
+                  <input id="youtubeAudioOnly" type="checkbox" />
+                  <span>只下载音频</span>
+                </label>
+                <label class="check-row">
+                  <input id="youtubeUseCookies" type="checkbox" />
+                  <span>下载时使用 Chrome 登录态</span>
+                </label>
+              </div>
+              <textarea id="youtubeLinks" rows="7" placeholder="也可以直接粘贴多个 YouTube 链接"></textarea>
+              <div class="youtube-actions">
+                <button id="scanCustomPlaylist" class="glow-btn">扫描列表</button>
+                <button id="parseYoutubeLinks" class="ghost-btn">解析链接</button>
+                <button id="selectAllYoutube" class="ghost-btn">全选</button>
+                <button id="clearYoutube" class="ghost-btn danger">清空</button>
+              </div>
+            </section>
+
+            <section class="youtube-results">
+              <ul id="youtubeList" class="compact-list youtube-list"></ul>
+              <button id="downloadYoutube" class="glow-btn wide">下载选中视频到 inputs</button>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <section id="postprocessView" class="view">
+        <div id="postStatusSlot" class="status-slot post-status-slot"></div>
+
+        <section class="post-pickers">
+          <article class="card picker-card">
+            <div class="section-title">
+              <h3>源文件</h3>
+              <span id="postInputCount">0 个文件</span>
+            </div>
+            <p>导出 MP3 会使用这里选中的原视频或音频。</p>
+            <ul id="postInputsList" class="compact-list selectable-list"></ul>
+          </article>
+          <article class="card picker-card">
+            <div class="section-title">
+              <h3>文字稿结果</h3>
+              <span id="postOutputCount">0 个结果</span>
+            </div>
+            <p>润色和自动命名会使用这里选中的结果文件夹。</p>
+            <ul id="postOutputsList" class="compact-list selectable-list"></ul>
+          </article>
+        </section>
+
+        <section class="post-grid">
+          <button data-task="polish" class="post-card">
+            <strong>润色文字稿</strong>
+            <span>输出更优雅但不大改原意的文字稿。</span>
+          </button>
+          <button data-task="title" class="post-card">
+            <strong>自动命名</strong>
+            <span>读取文字稿，生成英文标题，并自动附加到结果文件夹名称后。</span>
+          </button>
+          <button data-task="summary" class="post-card">
+            <strong>总结概要</strong>
+            <span>根据文字稿生成一份结构清晰的概要。</span>
+          </button>
+          <button data-task="high-quality-mp3" class="post-card">
+            <strong>导出高质量 MP3</strong>
+            <span>对选中的原视频或音频导出适合收听的 MP3。</span>
+          </button>
+        </section>
+      </section>
+    </main>
+
+    <article id="taskStatusPanel" class="task-status">
+      <div>
+        <span id="taskState" class="status-text">空闲</span>
+        <h2 id="activeTask">准备转写</h2>
+        <p id="taskHint">导入文件，选择方式，然后开始。</p>
+      </div>
+      <div id="statusOrb" class="status-orb" aria-hidden="true"></div>
+      <div class="progress-line">
+        <span id="progressGlow"></span>
+      </div>
+    </article>
+
+    <div id="settingsModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <section class="modal-panel">
+        <div class="section-title">
+          <h3>设置</h3>
+          <button id="closeSettings" class="icon-text">关闭</button>
+        </div>
+        <p id="settingsSaved" class="save-hint" aria-live="polite"></p>
+        <label class="setting-row">
+          <span>监听下载文件夹</span>
+          <input id="watchDownloads" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span>API 转写后自动润色</span>
+          <input id="apiAutoPolish" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span>自动生成标题并重命名</span>
+          <input id="autoTitleRename" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span>完成任务后自动关闭</span>
+          <input id="autoClose" type="checkbox" />
+        </label>
+        <label class="setting-row">
+          <span>本地 beam 数量</span>
+          <input id="beamSize" type="number" min="1" max="8" />
+        </label>
+        <label class="setting-row">
+          <span>自动关闭分钟数</span>
+          <input id="autoCloseMinutes" type="number" min="0" max="240" />
+        </label>
+        <button id="saveSettings" class="glow-btn wide">保存设置</button>
+      </section>
+    </div>
+
+    <div id="youtubeHelpModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop"></div>
+      <section class="modal-panel tutorial-panel">
+        <div class="section-title">
+          <h3 id="youtubeHelpTitle">YouTube 导入方式</h3>
+          <button id="closeYoutubeHelp" class="icon-text">关闭</button>
+        </div>
+        <div id="youtubeHelpPages" class="tutorial-pages">
+          <article class="tutorial-page active" data-page="0">
+            <strong>推荐路线：Chrome 扩展导入列表</strong>
+            <p>打开 YouTube 的稍后观看、播放列表或搜索结果页，页面右侧会出现“导入工作台”按钮。点击后扩展会收集当前页面可见的视频链接，发送到本地工作台，并让 Edge 打开 YouTube 页。</p>
+          </article>
+          <article class="tutorial-page" data-page="1">
+            <strong>Codex 路线：让 Codex 自动抓取</strong>
+            <p>Codex 打开时，可以让 Codex 操控 Chrome 收集链接，再推送到同一个本地接口。这个路线适合你已经在 Codex 线程里继续自动化，不需要额外导出 cookies。</p>
+          </article>
+          <article class="tutorial-page" data-page="2">
+            <strong>兜底路线：复制粘贴或 cookies.txt</strong>
+            <p>公开视频直接复制多个链接到文本框后点“解析链接”。私有列表如果要用 yt-dlp 直接扫描，仍可能需要上传 YouTube cookies.txt，因为 Chrome 的加密 cookies 不一定能被 yt-dlp 解开。</p>
+          </article>
+        </div>
+        <div class="tutorial-footer">
+          <label class="check-row">
+            <input id="youtubeHelpDontShow" type="checkbox" />
+            <span>以后不自动弹出</span>
+          </label>
+          <div class="tutorial-nav">
+            <button id="prevYoutubeHelp" class="ghost-btn">上一页</button>
+            <span id="youtubeHelpPageText">1 / 3</span>
+            <button id="nextYoutubeHelp" class="glow-btn">下一页</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

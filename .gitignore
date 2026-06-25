@@ -1,0 +1,33 @@
+# Secrets and local settings
+.env
+settings.json
+*.pem
+
+# Python/runtime artifacts
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# User media and generated outputs
+inputs/
+outputs/
+audio_exports/
+compressed_audio/
+*.mp3
+*.mp4
+*.m4a
+*.wav
+*.srt
+*.jsonl
+
+# Local app/build artifacts
+browser_extension.crx
+backups/
+.download_ingest_state.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
