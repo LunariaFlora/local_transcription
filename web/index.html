@@ -174,26 +174,12 @@
         <div id="postStatusSlot" class="status-slot post-status-slot"></div>
 
         <section class="post-pickers">
-          <article class="card picker-card source-picker">
-            <div class="section-title">
-              <h3>源文件操作</h3>
-              <span id="postInputCount">0 个文件</span>
-            </div>
-            <p>在这里选择原视频或音频，下方按钮只处理左侧选中项。</p>
-            <ul id="postInputsList" class="compact-list selectable-list"></ul>
-            <div class="post-actions source-actions">
-              <button data-task="high-quality-mp3" class="post-card">
-                <strong>导出高质量 MP3</strong>
-                <span>使用上方左侧选中的源文件，导出适合收听的 MP3。</span>
-              </button>
-            </div>
-          </article>
           <article class="card picker-card transcript-picker">
             <div class="section-title">
               <h3>文字稿操作</h3>
               <span id="postOutputCount">0 个结果</span>
             </div>
-            <p>在这里选择文字稿结果，下方三个按钮只处理右侧选中项。</p>
+            <p>在这里选择文字稿结果，下方三个按钮只处理上方选中项。</p>
             <ul id="postOutputsList" class="compact-list selectable-list"></ul>
             <div class="post-actions transcript-actions">
               <button data-task="polish" class="post-card">
@@ -207,6 +193,24 @@
               <button data-task="summary" class="post-card">
                 <strong>总结概要</strong>
                 <span>根据文字稿生成一份结构清晰的概要。</span>
+              </button>
+            </div>
+          </article>
+          <article class="card picker-card source-picker">
+            <div class="section-title">
+              <h3>源文件操作</h3>
+              <span id="postInputCount">0 个文件</span>
+            </div>
+            <p>在这里选择原视频或音频，下方功能只处理上方选中项。</p>
+            <ul id="postInputsList" class="compact-list selectable-list"></ul>
+            <div class="post-actions source-actions">
+              <button data-task="high-quality-mp3" class="post-card">
+                <strong>导出高质量 MP3</strong>
+                <span>使用上方选中的源文件，导出适合收听的 MP3。</span>
+              </button>
+              <button id="returnToTranscribe" class="post-card return-transcribe">
+                <strong>按上次设置转写</strong>
+                <span>返回转写页面，继续使用上次选择的在线或本地设置。</span>
               </button>
             </div>
           </article>

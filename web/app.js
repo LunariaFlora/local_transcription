@@ -623,6 +623,10 @@ $("goPostprocess").addEventListener("click", (event) => {
 $("showTranscribe").addEventListener("click", () => switchView("transcribe"));
 $("showYoutube").addEventListener("click", () => switchView("youtube"));
 $("showPostprocess").addEventListener("click", () => switchView("postprocess"));
+$("returnToTranscribe").addEventListener("click", () => {
+  switchView("transcribe");
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 $("settingsBtn").addEventListener("click", openSettings);
 $("closeSettings").addEventListener("click", closeSettings);
 $("settingsModal").addEventListener("click", (event) => {

@@ -785,7 +785,7 @@ select,
 
 .post-pickers {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.75fr);
   gap: 16px;
   margin-top: 0;
 }
@@ -807,6 +807,12 @@ select,
 
 .transcript-actions {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.return-transcribe {
+  min-height: 94px;
+  border-style: dashed;
+  background: rgba(59, 130, 246, 0.035);
 }
 
 .youtube-status-slot {
