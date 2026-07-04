@@ -1,6 +1,8 @@
 (() => {
   const API_URL = "http://127.0.0.1:8765/api/youtube-import-links";
   const BUTTON_ID = "local-transcription-youtube-import";
+  const WIDGET_ID = `${BUTTON_ID}-widget`;
+  const DISMISSED_KEY = "local-transcription-youtube-widget-dismissed";
   const WATCH_RE = /(?:youtube\.com\/watch\?[^#\s]*v=|youtu\.be\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/;
   const VIDEO_CARD_SELECTOR = [
     "ytd-playlist-video-renderer",
@@ -155,18 +157,16 @@
     style.id = `${BUTTON_ID}-styles`;
     style.textContent = `
       #${BUTTON_ID} {
-        position: fixed;
-        right: 18px;
-        top: 112px;
-        z-index: 2147483647;
+        width: 34px;
+        height: 34px;
         border: 1px solid rgba(96, 165, 250, .45);
-        border-radius: 999px;
-        padding: 10px 14px;
+        border-radius: 10px;
+        padding: 0;
         color: #eff6ff;
         background: rgba(12, 18, 32, .86);
-        box-shadow: 0 18px 48px rgba(0, 0, 0, .34), 0 0 24px rgba(59, 130, 246, .18);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, .3), 0 0 18px rgba(59, 130, 246, .15);
         backdrop-filter: blur(14px);
-        font: 600 13px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font: 700 15px/1 system-ui, sans-serif;
         cursor: pointer;
       }
       #${BUTTON_ID}:hover {
@@ -175,6 +175,30 @@
       #${BUTTON_ID}:disabled {
         cursor: wait;
         opacity: .7;
+      }
+      #${WIDGET_ID} {
+        position: fixed;
+        right: 12px;
+        top: 104px;
+        z-index: 2147483647;
+        display: flex;
+        gap: 4px;
+        align-items: flex-start;
+      }
+      #${WIDGET_ID}-close {
+        width: 18px;
+        height: 18px;
+        border: 0;
+        border-radius: 50%;
+        padding: 0;
+        color: rgba(255, 255, 255, .76);
+        background: rgba(12, 18, 32, .82);
+        font: 500 13px/18px system-ui, sans-serif;
+        cursor: pointer;
+      }
+      #${WIDGET_ID}-close:hover {
+        color: #fff;
+        background: rgba(37, 99, 235, .9);
       }
       #${BUTTON_ID}-status {
         position: fixed;
@@ -202,14 +226,29 @@
   }
 
   function installButton() {
-    if (document.getElementById(BUTTON_ID)) return;
+    if (document.getElementById(WIDGET_ID) || sessionStorage.getItem(DISMISSED_KEY) === "1") return;
     installStyles();
+    const widget = document.createElement("div");
+    widget.id = WIDGET_ID;
     const button = document.createElement("button");
     button.id = BUTTON_ID;
     button.type = "button";
-    button.textContent = "导入工作台";
+    button.textContent = "转";
+    button.title = "导入当前页面视频并打开转写工作台";
+    button.setAttribute("aria-label", button.title);
     button.addEventListener("click", importItems);
-    document.documentElement.appendChild(button);
+    const close = document.createElement("button");
+    close.id = `${WIDGET_ID}-close`;
+    close.type = "button";
+    close.textContent = "×";
+    close.title = "关闭本页入口";
+    close.setAttribute("aria-label", close.title);
+    close.addEventListener("click", () => {
+      sessionStorage.setItem(DISMISSED_KEY, "1");
+      widget.remove();
+    });
+    widget.append(button, close);
+    document.documentElement.appendChild(widget);
   }
 
   installButton();

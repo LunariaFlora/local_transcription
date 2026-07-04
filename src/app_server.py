@@ -567,7 +567,24 @@ class Handler(BaseHTTPRequestHandler):
             folder.mkdir(parents=True, exist_ok=True)
             try:
                 if os.name == "nt":
-                    os.startfile(str(folder))  # type: ignore[attr-defined]
+                    escaped_folder = str(folder).replace("'", "''")
+                    subprocess.Popen(
+                        [
+                            "powershell.exe",
+                            "-NoProfile",
+                            "-WindowStyle",
+                            "Hidden",
+                            "-Command",
+                            (
+                                f"$path='{escaped_folder}'; "
+                                "Start-Process explorer.exe -ArgumentList @('/n,', $path); "
+                                "Start-Sleep -Milliseconds 650; "
+                                "$null=(New-Object -ComObject WScript.Shell).AppActivate("
+                                "(Split-Path -Leaf $path))"
+                            ),
+                        ],
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
                 else:
                     subprocess.Popen(["xdg-open", str(folder)])
             except Exception as exc:

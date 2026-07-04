@@ -511,7 +511,7 @@ function moveStatusPanel(target) {
         { opacity: 0, transform: "translateY(10px) scale(0.985)" },
         { opacity: 1, transform: "translateY(0) scale(1)" },
       ],
-      { duration: 520, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+      { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
     );
   }
 }
@@ -615,7 +615,11 @@ $("continueTranscribe").addEventListener("click", () => {
   $("doneActions").hidden = true;
   $("taskHint").textContent = "可以继续导入文件，或直接再次开始转写。";
 });
-$("goPostprocess").addEventListener("click", () => switchView("postprocess"));
+$("goPostprocess").addEventListener("click", (event) => {
+  event.preventDefault();
+  switchView("postprocess");
+  window.scrollTo({ top: 0, behavior: "auto" });
+});
 $("showTranscribe").addEventListener("click", () => switchView("transcribe"));
 $("showYoutube").addEventListener("click", () => switchView("youtube"));
 $("showPostprocess").addEventListener("click", () => switchView("postprocess"));

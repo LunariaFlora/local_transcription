@@ -174,41 +174,42 @@
         <div id="postStatusSlot" class="status-slot post-status-slot"></div>
 
         <section class="post-pickers">
-          <article class="card picker-card">
+          <article class="card picker-card source-picker">
             <div class="section-title">
-              <h3>源文件</h3>
+              <h3>源文件操作</h3>
               <span id="postInputCount">0 个文件</span>
             </div>
-            <p>导出 MP3 会使用这里选中的原视频或音频。</p>
+            <p>在这里选择原视频或音频，下方按钮只处理左侧选中项。</p>
             <ul id="postInputsList" class="compact-list selectable-list"></ul>
+            <div class="post-actions source-actions">
+              <button data-task="high-quality-mp3" class="post-card">
+                <strong>导出高质量 MP3</strong>
+                <span>使用上方左侧选中的源文件，导出适合收听的 MP3。</span>
+              </button>
+            </div>
           </article>
-          <article class="card picker-card">
+          <article class="card picker-card transcript-picker">
             <div class="section-title">
-              <h3>文字稿结果</h3>
+              <h3>文字稿操作</h3>
               <span id="postOutputCount">0 个结果</span>
             </div>
-            <p>润色和自动命名会使用这里选中的结果文件夹。</p>
+            <p>在这里选择文字稿结果，下方三个按钮只处理右侧选中项。</p>
             <ul id="postOutputsList" class="compact-list selectable-list"></ul>
+            <div class="post-actions transcript-actions">
+              <button data-task="polish" class="post-card">
+                <strong>润色文字稿</strong>
+                <span>输出更优雅但不大改原意的文字稿。</span>
+              </button>
+              <button data-task="title" class="post-card">
+                <strong>自动命名</strong>
+                <span>生成英文标题，并附加到结果文件夹名称后。</span>
+              </button>
+              <button data-task="summary" class="post-card">
+                <strong>总结概要</strong>
+                <span>根据文字稿生成一份结构清晰的概要。</span>
+              </button>
+            </div>
           </article>
-        </section>
-
-        <section class="post-grid">
-          <button data-task="polish" class="post-card">
-            <strong>润色文字稿</strong>
-            <span>输出更优雅但不大改原意的文字稿。</span>
-          </button>
-          <button data-task="title" class="post-card">
-            <strong>自动命名</strong>
-            <span>读取文字稿，生成英文标题，并自动附加到结果文件夹名称后。</span>
-          </button>
-          <button data-task="summary" class="post-card">
-            <strong>总结概要</strong>
-            <span>根据文字稿生成一份结构清晰的概要。</span>
-          </button>
-          <button data-task="high-quality-mp3" class="post-card">
-            <strong>导出高质量 MP3</strong>
-            <span>对选中的原视频或音频导出适合收听的 MP3。</span>
-          </button>
         </section>
       </section>
     </main>

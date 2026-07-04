@@ -184,7 +184,7 @@ h3 {
 
 .view.active {
   display: block;
-  animation: pageIn 650ms var(--ease) both;
+  animation: pageIn 300ms var(--ease) both;
 }
 
 #postprocessView {
@@ -476,8 +476,10 @@ h3 {
   gap: 8px;
   max-height: none;
   margin: 14px 0 0;
-  padding: 0;
-  overflow: auto;
+  padding: 0 12px 0 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
   list-style: none;
 }
 
@@ -488,6 +490,7 @@ h3 {
 }
 
 .compact-list li {
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -546,6 +549,7 @@ h3 {
 .item-tags {
   display: flex;
   flex: 0 0 auto;
+  max-width: 42%;
   gap: 5px;
   align-items: center;
   flex-wrap: wrap;
@@ -786,6 +790,25 @@ select,
   margin-top: 0;
 }
 
+.post-pickers .picker-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.post-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.source-actions {
+  grid-template-columns: 1fr;
+}
+
+.transcript-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .youtube-status-slot {
   margin-bottom: 16px;
 }
@@ -933,16 +956,13 @@ select,
 }
 
 .post-grid {
-  display: grid;
-  grid-template-columns: 0.86fr 0.86fr 0.86fr 1.28fr;
-  gap: 16px;
-  margin-top: 16px;
+  display: none;
 }
 
 .post-card {
   grid-column: span 1;
-  min-height: 168px;
-  padding: 22px;
+  min-height: 126px;
+  padding: 18px;
   text-align: left;
   color: var(--text);
 }
@@ -1224,6 +1244,10 @@ select,
 }
 
 @media (max-width: 640px) {
+  .transcript-actions {
+    grid-template-columns: 1fr;
+  }
+
   .done-actions,
   .result-actions {
     display: grid;
