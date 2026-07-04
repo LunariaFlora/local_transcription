@@ -43,6 +43,44 @@ CONTENT_TYPES = {
 }
 
 
+def bring_explorer_to_front(folder_name: str) -> bool:
+    if os.name != "nt":
+        return False
+
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    matches: list[int] = []
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    def collect_window(hwnd: int, _lparam: int) -> bool:
+        class_name = ctypes.create_unicode_buffer(64)
+        title = ctypes.create_unicode_buffer(512)
+        user32.GetClassNameW(hwnd, class_name, len(class_name))
+        user32.GetWindowTextW(hwnd, title, len(title))
+        if class_name.value == "CabinetWClass" and title.value.startswith(folder_name):
+            matches.append(hwnd)
+        return True
+
+    user32.EnumWindows(callback_type(collect_window), 0)
+    if not matches:
+        return False
+
+    hwnd = matches[-1]
+    foreground = user32.GetForegroundWindow()
+    foreground_thread = user32.GetWindowThreadProcessId(foreground, None)
+    current_thread = ctypes.windll.kernel32.GetCurrentThreadId()
+    attached = bool(user32.AttachThreadInput(current_thread, foreground_thread, True))
+    try:
+        user32.ShowWindow(hwnd, 9)
+        user32.BringWindowToTop(hwnd)
+        return bool(user32.SetForegroundWindow(hwnd))
+    finally:
+        if attached:
+            user32.AttachThreadInput(current_thread, foreground_thread, False)
+
+
 class TaskRunner:
     def __init__(self) -> None:
         self.lock = threading.Lock()
@@ -567,24 +605,14 @@ class Handler(BaseHTTPRequestHandler):
             folder.mkdir(parents=True, exist_ok=True)
             try:
                 if os.name == "nt":
-                    escaped_folder = str(folder).replace("'", "''")
                     subprocess.Popen(
-                        [
-                            "powershell.exe",
-                            "-NoProfile",
-                            "-WindowStyle",
-                            "Hidden",
-                            "-Command",
-                            (
-                                f"$path='{escaped_folder}'; "
-                                "Start-Process explorer.exe -ArgumentList @('/n,', $path); "
-                                "Start-Sleep -Milliseconds 650; "
-                                "$null=(New-Object -ComObject WScript.Shell).AppActivate("
-                                "(Split-Path -Leaf $path))"
-                            ),
-                        ],
-                        creationflags=subprocess.CREATE_NO_WINDOW,
+                        ["explorer.exe", "/n,", str(folder)],
+                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
                     )
+                    for _ in range(12):
+                        time.sleep(0.1)
+                        if bring_explorer_to_front(folder.name):
+                            break
                 else:
                     subprocess.Popen(["xdg-open", str(folder)])
             except Exception as exc:
