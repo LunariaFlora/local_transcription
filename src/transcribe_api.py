@@ -11,6 +11,7 @@ from pathlib import Path
 
 from openai import OpenAI
 
+from finalize_transcript import finalize_transcript
 from polish_transcript import load_dotenv
 from transcribe_local import is_supported_media_path, validate_audio_stream
 
@@ -110,15 +111,41 @@ def split_for_api_size_safe(
         segment_seconds = next_segment_seconds
 
 
-def transcribe_chunk(client: OpenAI, model: str, chunk_path: Path, language: str | None) -> str:
+def transcribe_chunk(
+    client: OpenAI,
+    model: str,
+    chunk_path: Path,
+    language: str | None,
+) -> tuple[str, list[dict[str, object]]]:
     with chunk_path.open("rb") as handle:
         result = client.audio.transcriptions.create(
             model=model,
             file=handle,
             language=language,
-            response_format="text",
+            response_format="verbose_json",
+            timestamp_granularities=["segment"],
         )
-    return str(result).strip()
+    text = str(getattr(result, "text", "") or "").strip()
+    segments: list[dict[str, object]] = []
+    for item in getattr(result, "segments", None) or []:
+        if hasattr(item, "model_dump"):
+            raw = item.model_dump()
+        elif isinstance(item, dict):
+            raw = item
+        else:
+            raw = {
+                "start": getattr(item, "start", 0.0),
+                "end": getattr(item, "end", 0.0),
+                "text": getattr(item, "text", ""),
+            }
+        segments.append(
+            {
+                "start": float(raw.get("start") or 0.0),
+                "end": float(raw.get("end") or 0.0),
+                "text": str(raw.get("text") or ""),
+            }
+        )
+    return text, segments
 
 
 def transcribe_file_api(
@@ -167,25 +194,34 @@ def transcribe_file_api(
         f"[2/3] API transcribing {len(chunks)} chunk(s) with {model} "
         f"({actual_bitrate}, {actual_segment_seconds}s, max {max_bytes / 1024 / 1024:.0f}MiB)..."
     )
-    texts: list[str] = []
+    all_segments: list[dict[str, object]] = []
     chunk_records: list[dict[str, object]] = []
     for index, chunk in enumerate(chunks, start=1):
         if index > 1 and request_delay_seconds > 0:
             print(f"Waiting {request_delay_seconds:g}s for Groq rate limit...")
             time.sleep(request_delay_seconds)
         print(f"API chunk {index}/{len(chunks)}: {chunk.name}")
-        text = transcribe_chunk(client, model, chunk, language)
-        texts.append(text)
+        text, chunk_segments = transcribe_chunk(client, model, chunk, language)
+        offset = (index - 1) * actual_segment_seconds
+        absolute_segments = [
+            {
+                **segment,
+                "start": float(segment["start"]) + offset,
+                "end": float(segment["end"]) + offset,
+            }
+            for segment in chunk_segments
+        ]
+        all_segments.extend(absolute_segments)
         chunk_records.append(
             {
                 "index": index,
                 "file": chunk.name,
                 "size_bytes": chunk.stat().st_size,
                 "text": text,
+                "segments": absolute_segments,
             }
         )
 
-    transcript_path.write_text("\n\n".join(texts).strip() + "\n", encoding="utf-8")
     metadata_path.write_text(
         json.dumps(
             {
@@ -202,6 +238,7 @@ def transcribe_file_api(
         ),
         encoding="utf-8",
     )
+    finalize_transcript(all_segments, transcript_path, input_path.name)
 
     if not keep_chunks:
         shutil.rmtree(chunk_dir, ignore_errors=True)

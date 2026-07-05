@@ -8,6 +8,8 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from finalize_transcript import finalize_transcript
+
 SUPPORTED_MEDIA = {
     ".aac",
     ".flac",
@@ -144,11 +146,6 @@ def format_timestamp(seconds: float) -> str:
     return f"{hours:02}:{minutes:02}:{secs:02},{millis:03}"
 
 
-def write_txt(path: Path, segments: list[Segment]) -> None:
-    text = "\n".join(segment.text.strip() for segment in segments if segment.text.strip())
-    path.write_text(text + "\n", encoding="utf-8")
-
-
 def write_srt(path: Path, segments: list[Segment]) -> None:
     lines: list[str] = []
     for index, segment in enumerate(segments, start=1):
@@ -223,9 +220,13 @@ def transcribe_file(
     srt_path = file_output_dir / "transcript.srt"
     json_path = file_output_dir / "transcript.json"
 
-    write_txt(txt_path, segments)
     write_srt(srt_path, segments)
     write_json(json_path, segments, info)
+    finalize_transcript(
+        (asdict(segment) for segment in segments),
+        txt_path,
+        input_path.name,
+    )
     wav_path.unlink(missing_ok=True)
 
     print("[4/4] Done")
@@ -277,9 +278,13 @@ def transcribe_preloaded_model(
     srt_path = file_output_dir / "transcript.srt"
     json_path = file_output_dir / "transcript.json"
 
-    write_txt(txt_path, segments)
     write_srt(srt_path, segments)
     write_json(json_path, segments, info)
+    finalize_transcript(
+        (asdict(segment) for segment in segments),
+        txt_path,
+        input_path.name,
+    )
     wav_path.unlink(missing_ok=True)
 
     print("[3/3] Done")
