@@ -111,7 +111,7 @@ GROQ_TRANSCRIBE_MODEL=whisper-large-v3-turbo
 
 Before upload, audio is compressed to 16k mono MP3 at 64k and split under a 24MiB safety limit. If a chunk is too large, the chunk duration is automatically reduced and retried. Groq requests are spaced by 20 seconds to respect 3 requests/minute behavior.
 
-API polish is off by default. Turn it on in Settings.
+Groq returns segment timestamps. DeepSeek then corrects obvious recognition errors, restores punctuation, and formats the final `transcript.txt` with `[HH:MM:SS]` markers.
 
 ## Local Transcribe
 
@@ -164,7 +164,6 @@ Settings are saved in `settings.json`.
 
 ```text
 watch_downloads
-api_auto_polish
 auto_title_rename
 local_beam_size
 auto_close_after_task
@@ -182,7 +181,7 @@ Local transcription:
 ```text
 outputs
 └─ source-name
-   ├─ transcript.txt
+   ├─ transcript.txt (formatted final text with timestamps)
    ├─ transcript.srt
    └─ transcript.json
 ```
@@ -194,7 +193,7 @@ Groq API transcription:
 ```text
 outputs
 └─ source-name
-   ├─ transcript.txt
+   ├─ transcript.txt (formatted final text with timestamps)
    └─ transcript_api.json
 ```
 

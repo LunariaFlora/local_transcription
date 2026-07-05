@@ -16,7 +16,6 @@ const taskLabels = {
   api: "在线 API 转写",
   "local-small": "本地 small 转写",
   "local-medium": "本地 medium 转写",
-  polish: "润色文字稿",
   title: "自动命名",
   summary: "总结概要",
   "high-quality-mp3": "导出高质量 MP3",
@@ -27,7 +26,6 @@ const backendTaskLabels = {
   "Groq API Transcribe": "在线转写",
   "Local Transcribe small": "本地 small 转写",
   "Local Transcribe medium": "本地 medium 转写",
-  "Text Polish": "润色文字稿",
   "Title and Rename": "自动命名",
   Summary: "总结概要",
   "High-quality MP3": "导出 MP3",
@@ -129,7 +127,7 @@ function latestUsefulLine(logs = []) {
 function taskHint(task) {
   if (task.running) {
     if (task.name === "YouTube Download") return "正在下载视频到 inputs。";
-    if (task.name === "Text Polish" || task.name === "Title and Rename") return "正在处理文字稿。";
+    if (task.name === "Title and Rename") return "正在处理文字稿。";
     if (task.name === "High-quality MP3") return "正在导出 MP3。";
     return "正在转写文件。";
   }
@@ -345,7 +343,6 @@ function renderFiles(data) {
 
 function renderSettings(settings) {
   $("watchDownloads").checked = Boolean(settings.watch_downloads);
-  $("apiAutoPolish").checked = Boolean(settings.api_auto_polish);
   $("autoTitleRename").checked = Boolean(settings.auto_title_rename);
   $("autoClose").checked = Boolean(settings.auto_close_after_task);
   $("beamSize").value = settings.local_beam_size ?? 2;
@@ -386,7 +383,7 @@ function selectedRouteTask() {
 
 function selectedPayload(task) {
   const inputTasks = new Set(["api", "local-small", "local-medium", "high-quality-mp3"]);
-  const outputTasks = new Set(["polish", "title", "summary"]);
+  const outputTasks = new Set(["title", "summary"]);
   const payload = { task };
   if (inputTasks.has(task)) payload.files = [...selectedInputs];
   if (outputTasks.has(task)) payload.folders = [...selectedOutputs];
@@ -403,7 +400,7 @@ function validateSelection(task) {
     showProcess("请先选择源文件", "error");
     return false;
   }
-  if (["polish", "title", "summary"].includes(task) && selectedOutputs.size === 0) {
+  if (["title", "summary"].includes(task) && selectedOutputs.size === 0) {
     showProcess("请先选择文字稿结果", "error");
     return false;
   }
@@ -432,7 +429,6 @@ async function saveSettings() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       watch_downloads: $("watchDownloads").checked,
-      api_auto_polish: $("apiAutoPolish").checked,
       auto_title_rename: $("autoTitleRename").checked,
       auto_close_after_task: $("autoClose").checked,
       local_beam_size: Number($("beamSize").value || 2),

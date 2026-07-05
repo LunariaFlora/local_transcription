@@ -82,12 +82,6 @@ while ($true) {
                 if ([string]::IsNullOrWhiteSpace($sub)) {
                     Run-WatchIfEnabled
                     & .\.venv\Scripts\python.exe .\src\transcribe_api.py
-                    if ($LASTEXITCODE -eq 0) {
-                        $polish = Get-SettingValue "api_auto_polish"
-                        if ($polish -eq $true) {
-                            & .\.venv\Scripts\python.exe .\src\text_tools.py polish
-                        }
-                    }
                     Pause-AfterTask
                     $returnToMain = $true
                     break
@@ -172,7 +166,7 @@ while ($true) {
         "5" {
             Write-Host ""
             Write-Host "Help"
-            Write-Host "1 API Transcribe: Groq Whisper transcription. Optional text polish is controlled in Settings."
+            Write-Host "1 API Transcribe: Groq Whisper transcription with timestamps and automatic DeepSeek cleanup."
             Write-Host "2 Local Transcribe: faster-whisper/CTranslate2 on CUDA only. Choose small or medium."
             Write-Host "3 Text Processing: DeepSeek-only polish or summary/title generation."
             Write-Host "4 Video Processing: export podcast MP3 or prepare 24MiB Groq-safe audio chunks."
@@ -188,26 +182,22 @@ while ($true) {
                 & .\.venv\Scripts\python.exe .\src\settings.py
                 Write-Host ""
                 Write-Host "1. Toggle Watch Downloads"
-                Write-Host "2. Toggle API auto polish"
-                Write-Host "3. Set local beam size"
-                Write-Host "4. Toggle auto close after task"
-                Write-Host "5. Set auto close minutes"
+                Write-Host "2. Set local beam size"
+                Write-Host "3. Toggle auto close after task"
+                Write-Host "4. Set auto close minutes"
                 Write-Host "0. Back"
-                $sub = Read-Host "Choose 0-5"
+                $sub = Read-Host "Choose 0-4"
                 if ($sub -eq "0") { break }
                 if ($sub -eq "1") {
                     $current = Get-SettingValue "watch_downloads"
                     Set-SettingValue "watch_downloads" (-not $current)
                 } elseif ($sub -eq "2") {
-                    $current = Get-SettingValue "api_auto_polish"
-                    Set-SettingValue "api_auto_polish" (-not $current)
-                } elseif ($sub -eq "3") {
                     $beam = Read-Host "Beam size"
                     Set-SettingValue "local_beam_size" $beam
-                } elseif ($sub -eq "4") {
+                } elseif ($sub -eq "3") {
                     $current = Get-SettingValue "auto_close_after_task"
                     Set-SettingValue "auto_close_after_task" (-not $current)
-                } elseif ($sub -eq "5") {
+                } elseif ($sub -eq "4") {
                     $minutes = Read-Host "Auto close minutes"
                     Set-SettingValue "auto_close_minutes" $minutes
                 } else {

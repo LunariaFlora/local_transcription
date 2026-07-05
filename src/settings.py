@@ -9,7 +9,6 @@ SETTINGS_PATH = Path("settings.json")
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "watch_downloads": False,
-    "api_auto_polish": False,
     "auto_title_rename": True,
     "local_beam_size": 2,
     "auto_close_after_task": False,
