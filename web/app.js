@@ -14,6 +14,7 @@ const youtubeHelpStorageKey = "youtubeImportHelpDismissed";
 
 const taskLabels = {
   api: "在线 API 转写",
+  "api-tingwu": "通义听悟转写",
   "local-small": "本地 small 转写",
   "local-medium": "本地 medium 转写",
   title: "自动命名",
@@ -23,7 +24,8 @@ const taskLabels = {
 };
 
 const backendTaskLabels = {
-  "Groq API Transcribe": "在线转写",
+  "Groq API Transcribe": "在线 Groq 转写",
+  "Tingwu API Transcribe": "在线通义转写",
   "Local Transcribe small": "本地 small 转写",
   "Local Transcribe medium": "本地 medium 转写",
   "Title and Rename": "自动命名",
@@ -129,6 +131,7 @@ function taskHint(task) {
     if (task.name === "YouTube Download") return "正在下载视频到 inputs。";
     if (task.name === "Title and Rename") return "正在处理文字稿。";
     if (task.name === "High-quality MP3") return "正在导出 MP3。";
+    if (task.name === "Tingwu API Transcribe") return "正在使用通义听悟转写。";
     return "正在转写文件。";
   }
   if (task.returncode === 0) return "任务已完成。";
@@ -376,13 +379,16 @@ async function refresh() {
 
 function selectedRouteTask() {
   const route = document.querySelector('input[name="route"]:checked')?.value || "api";
-  if (route === "api") return "api";
+  if (route === "api") {
+    const provider = document.querySelector(".api-provider-chip.active")?.dataset.provider || "tingwu";
+    return provider === "groq" ? "api" : "api-tingwu";
+  }
   const model = document.querySelector(".model-chip.active")?.dataset.model || "small";
   return model === "medium" ? "local-medium" : "local-small";
 }
 
 function selectedPayload(task) {
-  const inputTasks = new Set(["api", "local-small", "local-medium", "high-quality-mp3"]);
+  const inputTasks = new Set(["api", "api-tingwu", "local-small", "local-medium", "high-quality-mp3"]);
   const outputTasks = new Set(["title", "summary"]);
   const payload = { task };
   if (inputTasks.has(task)) payload.files = [...selectedInputs];
@@ -396,7 +402,7 @@ function selectedPayload(task) {
 }
 
 function validateSelection(task) {
-  if (["api", "local-small", "local-medium", "high-quality-mp3"].includes(task) && selectedInputs.size === 0) {
+  if (["api", "api-tingwu", "local-small", "local-medium", "high-quality-mp3"].includes(task) && selectedInputs.size === 0) {
     showProcess("请先选择源文件", "error");
     return false;
   }
@@ -563,7 +569,21 @@ function updateRouteSelection() {
     option.classList.toggle("selected", option.dataset.route === route);
   });
   $("modelPicker").classList.toggle("disabled", route !== "local");
+  $("apiProviderPicker").classList.toggle("disabled", route !== "api");
 }
+
+document.querySelectorAll(".api-provider-chip").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    const apiInput = document.querySelector('input[name="route"][value="api"]');
+    if (apiInput && !apiInput.checked) {
+      apiInput.checked = true;
+      updateRouteSelection();
+    }
+    document.querySelectorAll(".api-provider-chip").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+  });
+});
 
 document.querySelectorAll(".model-chip").forEach((button) => {
   button.addEventListener("click", (event) => {

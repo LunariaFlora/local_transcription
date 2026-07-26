@@ -75,11 +75,18 @@ while ($true) {
             while ($true) {
                 Write-Host ""
                 Write-Host "API Transcribe"
-                Write-Host "Press Enter to start"
+                Write-Host "Press Enter to start with Tongyi Tingwu"
+                Write-Host "2. Start with Groq"
                 Write-Host "0. Back"
                 $sub = Read-Host "Choose"
                 if ($sub -eq "0") { break }
                 if ([string]::IsNullOrWhiteSpace($sub)) {
+                    Run-WatchIfEnabled
+                    & .\.venv\Scripts\python.exe .\src\transcribe_tingwu.py
+                    Pause-AfterTask
+                    $returnToMain = $true
+                    break
+                } elseif ($sub -eq "2") {
                     Run-WatchIfEnabled
                     & .\.venv\Scripts\python.exe .\src\transcribe_api.py
                     Pause-AfterTask

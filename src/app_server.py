@@ -425,6 +425,8 @@ def task_args(task: str, payload: dict[str, object]) -> tuple[str, list[str]]:
     folders = selected_names(payload, "folders")
     if task == "api":
         return "Groq API Transcribe", append_files(["src/transcribe_api.py"], files)
+    if task == "api-tingwu":
+        return "Tingwu API Transcribe", append_files(["src/transcribe_tingwu.py"], files)
     if task == "local-small":
         return "Local Transcribe small", append_files(
             [

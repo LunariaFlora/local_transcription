@@ -62,7 +62,14 @@
                   <input type="radio" name="route" value="api" checked />
                   <span>
                     <strong>在线 API 转写</strong>
-                    <small>使用 Groq Whisper 进行转写。</small>
+                    <small>默认使用通义听悟，也可切换 Groq Whisper。</small>
+                    <span id="apiProviderPicker" class="model-picker">
+                      <span>在线服务</span>
+                      <div class="model-options" aria-label="在线服务">
+                        <button type="button" class="api-provider-chip active" data-provider="tingwu">通义</button>
+                        <button type="button" class="api-provider-chip" data-provider="groq">Groq</button>
+                      </div>
+                    </span>
                   </span>
                 </label>
 

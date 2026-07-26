@@ -1,6 +1,6 @@
 # Local Transcription Tool
 
-Local transcription uses `faster-whisper` / CTranslate2 on CUDA. Text polish uses DeepSeek. Cloud transcription uses Groq.
+Local transcription uses `faster-whisper` / CTranslate2 on CUDA. Text polish uses DeepSeek. Cloud transcription can use Tongyi Tingwu or Groq.
 
 ## Setup
 
@@ -77,7 +77,7 @@ Install it once:
 4. Select D:\Project\Codex\video_to_audio\local_transcription\browser_extension
 ```
 
-After the desktop launcher has started the workbench, open a YouTube page in Chrome. The extension injects a floating `导入工作台` button on YouTube only. Clicking it collects visible video links from the current page, sends them to:
+After the desktop launcher has started the workbench, open a YouTube page in Chrome. Click the extension icon only when you want to import the current page. The extension does not inject a floating button into YouTube by default. Clicking the popup button collects visible video links from the current page and sends them to:
 
 ```text
 http://127.0.0.1:8765/api/youtube-import-links
@@ -100,6 +100,40 @@ Chrome does not allow an extension to force itself pinned/unhidden in the toolba
 ```
 
 ## API Transcribe
+
+The frontend defaults to Tongyi Tingwu. Groq remains available as the second online provider.
+
+### Tongyi Tingwu
+
+Tingwu offline transcription requires a public HTTP/HTTPS file URL. For local files, this tool uploads the file to OSS first, creates a signed URL, starts a Tingwu offline task, polls it, downloads the result JSON, and writes `transcript.txt` with timestamps and speaker labels when available.
+
+Add this to `.env`:
+
+```text
+ALIBABA_CLOUD_ACCESS_KEY_ID=your-access-key-id
+ALIBABA_CLOUD_ACCESS_KEY_SECRET=your-access-key-secret
+TINGWU_APP_KEY=your-tingwu-app-key
+TINGWU_SOURCE_LANGUAGE=cn
+
+ALIYUN_OSS_BUCKET=your-bucket-name
+ALIYUN_OSS_ENDPOINT=https://oss-cn-beijing.aliyuncs.com
+TINGWU_OSS_PREFIX=local-transcription/tingwu-inputs
+```
+
+If you already have a public URL for a single test file, you can set `TINGWU_FILE_URL=...` and skip OSS upload for that run.
+
+Tingwu output:
+
+```text
+outputs
+└─ source-name
+   ├─ transcript.txt
+   ├─ transcript_tingwu.json
+   ├─ transcript_tingwu_task.json
+   └─ tingwu_task_latest.json
+```
+
+### Groq
 
 Uses Groq Whisper API. Add this to `.env`:
 
