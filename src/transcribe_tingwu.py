@@ -137,7 +137,7 @@ def safe_object_name(path: Path) -> str:
     return cleaned or f"media{path.suffix.lower()}"
 
 
-def signed_oss_url(input_path: Path) -> str:
+def signed_oss_url(input_path: Path) -> tuple[str, oss2.Bucket, str]:
     bucket_name = require_env("ALIYUN_OSS_BUCKET", "OSS_BUCKET")
     endpoint = require_env("ALIYUN_OSS_ENDPOINT", "OSS_ENDPOINT")
     access_key_id = require_env("ALIBABA_CLOUD_ACCESS_KEY_ID", "ALIYUN_ACCESS_KEY_ID")
@@ -148,14 +148,29 @@ def signed_oss_url(input_path: Path) -> str:
     print(f"[1/4] Uploading to OSS: oss://{bucket_name}/{key}")
     bucket = oss2.Bucket(oss2.Auth(access_key_id, access_key_secret), endpoint, bucket_name)
     bucket.put_object_from_file(key, str(input_path))
-    return bucket.sign_url("GET", key, expires, slash_safe=True)
+    return bucket.sign_url("GET", key, expires, slash_safe=True), bucket, key
 
 
-def source_url_for(input_path: Path) -> str:
+def source_url_for(input_path: Path) -> tuple[str, oss2.Bucket | None, str]:
     configured = os.getenv("TINGWU_FILE_URL")
     if configured:
-        return configured
+        return configured, None, ""
     return signed_oss_url(input_path)
+
+
+def should_delete_temporary_object() -> bool:
+    value = os.getenv("TINGWU_DELETE_OSS_OBJECT", "true").strip().lower()
+    return value not in {"0", "false", "no", "off"}
+
+
+def delete_temporary_object(bucket: oss2.Bucket | None, key: str) -> None:
+    if bucket is None or not key or not should_delete_temporary_object():
+        return
+    try:
+        bucket.delete_object(key)
+        print(f"Temporary OSS file deleted: oss://{bucket.bucket_name}/{key}")
+    except Exception as exc:
+        print(f"Temporary OSS cleanup failed: {exc}", file=sys.stderr)
 
 
 def create_task(file_url: str, source_name: str) -> str:
@@ -349,33 +364,36 @@ def transcribe_file_tingwu(input_path: Path, output_dir: Path, force: bool) -> N
         return
 
     file_output_dir.mkdir(parents=True, exist_ok=True)
-    file_url = source_url_for(input_path)
+    file_url, temporary_bucket, temporary_key = source_url_for(input_path)
     task_id = create_task(file_url, input_path.name)
     task_info = poll_task(task_id, file_output_dir)
-    task_data = task_info.get("Data") or {}
-    (file_output_dir / "transcript_tingwu_task.json").write_text(
-        json.dumps(task_info, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+    try:
+        task_data = task_info.get("Data") or {}
+        (file_output_dir / "transcript_tingwu_task.json").write_text(
+            json.dumps(task_info, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
-    result = task_data.get("Result") or {}
-    transcription_url = result_url(result, "Transcription")
-    if not transcription_url:
-        raise RuntimeError("Tingwu task completed but returned no Transcription result URL.")
+        result = task_data.get("Result") or {}
+        transcription_url = result_url(result, "Transcription")
+        if not transcription_url:
+            raise RuntimeError("Tingwu task completed but returned no Transcription result URL.")
 
-    print("[4/4] Downloading Tingwu result JSON")
-    transcription_data = download_json(str(transcription_url), file_output_dir / "transcript_tingwu.json")
-    text_polish_url = result_url(result, "TextPolish")
-    if text_polish_url:
-        try:
-            download_json(str(text_polish_url), file_output_dir / "transcript_tingwu_text_polish.json")
-        except Exception as exc:
-            print(f"TextPolish download failed, continuing with timed transcription: {exc}")
+        print("[4/4] Downloading Tingwu result JSON")
+        transcription_data = download_json(str(transcription_url), file_output_dir / "transcript_tingwu.json")
+        text_polish_url = result_url(result, "TextPolish")
+        if text_polish_url:
+            try:
+                download_json(str(text_polish_url), file_output_dir / "transcript_tingwu_text_polish.json")
+            except Exception as exc:
+                print(f"TextPolish download failed, continuing with timed transcription: {exc}")
 
-    rows = collect_timed_text(transcription_data)
-    write_transcript(rows, transcript_path)
-    print(f"TXT : {transcript_path}")
-    print(f"JSON: {file_output_dir / 'transcript_tingwu.json'}")
+        rows = collect_timed_text(transcription_data)
+        write_transcript(rows, transcript_path)
+        print(f"TXT : {transcript_path}")
+        print(f"JSON: {file_output_dir / 'transcript_tingwu.json'}")
+    finally:
+        delete_temporary_object(temporary_bucket, temporary_key)
 
 
 def parse_args() -> argparse.Namespace:

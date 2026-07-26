@@ -105,7 +105,9 @@ The frontend defaults to Tongyi Tingwu. Groq remains available as the second onl
 
 ### Tongyi Tingwu
 
-Tingwu offline transcription requires a public HTTP/HTTPS file URL. For local files, this tool uploads the file to OSS first, creates a signed URL, starts a Tingwu offline task, polls it, downloads the result JSON, and writes `transcript.txt` with timestamps and speaker labels when available.
+Tingwu offline transcription requires a public HTTP/HTTPS file URL. This is separate from the optional callback URL in the Tingwu project. Keep the project on active polling; do not enable the project-level OSS option marked for legacy APIs.
+
+For local files, this tool uses a private OSS bucket only as temporary file transport. It uploads the file, creates a short-lived signed URL, starts a Tingwu v2 offline task, polls it, downloads the result JSON, and deletes the temporary OSS object after the completed result is retrieved. The final `transcript.txt` includes timestamps and speaker labels when available.
 
 Add this to `.env`:
 
@@ -118,6 +120,7 @@ TINGWU_SOURCE_LANGUAGE=cn
 ALIYUN_OSS_BUCKET=your-bucket-name
 ALIYUN_OSS_ENDPOINT=https://oss-cn-beijing.aliyuncs.com
 TINGWU_OSS_PREFIX=local-transcription/tingwu-inputs
+TINGWU_DELETE_OSS_OBJECT=true
 ```
 
 If you already have a public URL for a single test file, you can set `TINGWU_FILE_URL=...` and skip OSS upload for that run.

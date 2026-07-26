@@ -36,6 +36,10 @@ def load_dotenv(path: Path) -> None:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
+        if key.lower().startswith("export "):
+            key = key[7:].strip()
+        if not key:
+            continue
         value = value.strip().strip('"').strip("'")
         os.environ.setdefault(key, value)
 
