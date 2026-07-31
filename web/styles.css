@@ -1282,11 +1282,100 @@ select,
   to { transform: rotate(360deg); }
 }
 
-.mobile-results-card {
+.mobile-only,
+.mobile-results-view {
   display: none;
 }
 
-.mobile-downloads {
+.mobile-result-shell {
+  padding: 18px;
+}
+
+.mobile-result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mobile-result-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-result-heading span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mobile-result-heading h2 {
+  margin: 5px 0 0;
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+
+.ghost-btn.compact {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  white-space: nowrap;
+}
+
+.mobile-transcript-empty,
+.mobile-transcript-text {
+  min-height: 280px;
+  margin: 16px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(5, 9, 18, 0.46);
+}
+
+.mobile-transcript-empty {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mobile-transcript-empty[hidden],
+.mobile-transcript-text[hidden],
+.mobile-transcript-actions[hidden] {
+  display: none;
+}
+
+.mobile-transcript-text {
+  max-height: 52vh;
+  overflow: auto;
+  color: var(--soft);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mobile-transcript-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.mobile-transcript-actions .glow-btn {
+  display: grid;
+  place-items: center;
+  color: #07111e;
+  text-decoration: none;
+}
+
+.mobile-history-panel {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.mobile-history-list {
   display: grid;
   gap: 10px;
   margin: 16px 0 0;
@@ -1294,42 +1383,47 @@ select,
   list-style: none;
 }
 
-.mobile-downloads li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px;
+.mobile-history-list li {
   border: 1px solid rgba(91, 158, 255, 0.24);
   border-radius: 14px;
   background: rgba(91, 158, 255, 0.06);
+  transition: border-color 300ms var(--ease), background 300ms var(--ease);
 }
 
-.mobile-downloads span {
-  min-width: 0;
+.mobile-history-list li.selected {
+  border-color: rgba(91, 158, 255, 0.65);
+  background: rgba(91, 158, 255, 0.13);
 }
 
-.mobile-downloads strong,
-.mobile-downloads small {
+.mobile-history-list button {
+  width: 100%;
+  border: 0;
+  padding: 14px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.mobile-history-list strong,
+.mobile-history-list small {
   display: block;
 }
 
-.mobile-downloads strong {
+.mobile-history-list strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.mobile-downloads small {
+.mobile-history-list small {
   margin-top: 4px;
   color: var(--muted);
 }
 
-.mobile-download-btn {
-  flex: 0 0 auto;
-  padding: 10px 14px;
-  color: #07111e;
-  text-decoration: none;
+.mobile-history-list .empty {
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
 }
 
 html.mobile-mode #showYoutube,
@@ -1341,12 +1435,21 @@ html.mobile-mode .results-card,
 html.mobile-mode #openOutputsBtn,
 html.mobile-mode #doneActions,
 html.mobile-mode #settingsBtn,
-html.mobile-mode .view-switch {
+html.mobile-mode #youtubeHelpModal {
   display: none !important;
 }
 
-html.mobile-mode .mobile-results-card:not([hidden]) {
+html.mobile-mode .mobile-only {
+  display: inline-flex;
+}
+
+html.mobile-mode .view-switch {
+  display: flex;
+}
+
+html.mobile-mode .mobile-results-view.active {
   display: block;
+  animation: pageIn 300ms var(--ease) both;
 }
 
 @media (max-width: 980px) {
@@ -1618,7 +1721,7 @@ html.mobile-mode .mobile-results-card:not([hidden]) {
 
   html.mobile-mode .upload-zone,
   html.mobile-mode .route-zone,
-  html.mobile-mode .mobile-results-card {
+  html.mobile-mode .mobile-result-shell {
     padding: 14px;
   }
 
@@ -1626,13 +1729,7 @@ html.mobile-mode .mobile-results-card:not([hidden]) {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  html.mobile-mode .mobile-downloads li {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  html.mobile-mode .mobile-download-btn {
-    width: 100%;
-    text-align: center;
+  html.mobile-mode .mobile-transcript-actions {
+    grid-template-columns: 1fr;
   }
 }

@@ -31,6 +31,7 @@
 
       <nav class="view-switch" aria-label="页面切换">
         <button id="showTranscribe" class="switch-btn active">转写</button>
+        <button id="showMobileResults" class="switch-btn mobile-only">结果</button>
         <button id="showYoutube" class="switch-btn">YouTube</button>
         <button id="showPostprocess" class="switch-btn">后处理</button>
       </nav>
@@ -113,12 +114,34 @@
           <ul id="outputsList" class="compact-list outputs"></ul>
         </article>
 
-        <article id="mobileResultsCard" class="card mobile-results-card reveal" hidden>
-          <div class="section-title">
-            <h3>本次文字稿</h3>
-            <span id="mobileOutputCount">0 个结果</span>
+      </section>
+
+      <section id="mobileResultsView" class="view mobile-results-view">
+        <article class="card mobile-result-shell reveal">
+          <div class="mobile-result-heading">
+            <div>
+              <span>文字稿结果</span>
+              <h2 id="mobileTranscriptTitle">选择一份文字稿</h2>
+            </div>
+            <button id="refreshMobileHistory" class="ghost-btn compact">刷新</button>
           </div>
-          <ul id="mobileDownloads" class="mobile-downloads"></ul>
+
+          <div id="mobileTranscriptEmpty" class="mobile-transcript-empty">
+            转写完成后，文字稿会显示在这里。
+          </div>
+          <pre id="mobileTranscriptText" class="mobile-transcript-text" hidden></pre>
+          <div id="mobileTranscriptActions" class="mobile-transcript-actions" hidden>
+            <button id="copyMobileTranscript" class="ghost-btn">复制文字稿</button>
+            <a id="downloadMobileTranscript" class="glow-btn" href="#">下载文字稿</a>
+          </div>
+
+          <section class="mobile-history-panel">
+            <div class="section-title">
+              <h3>历史记录</h3>
+              <span id="mobileOutputCount">0 个结果</span>
+            </div>
+            <ul id="mobileHistoryList" class="mobile-history-list"></ul>
+          </section>
         </article>
       </section>
 

@@ -45,7 +45,12 @@ class MobileSessionTests(unittest.TestCase):
             session_id = "session_abcdefghij"
             session = app_server.mobile_session(session_id)
             session["created_at"] = time.time() - 1
-            session["inputs"] = {"phone-audio.m4a": "手机录音.m4a"}
+            session["inputs"] = {
+                "phone-audio.m4a": {
+                    "display_name": "手机录音.m4a",
+                    "uploaded_at": time.time(),
+                }
+            }
 
             (inputs / "phone-audio.m4a").write_bytes(b"audio")
             result = outputs / "phone-audio"
@@ -62,6 +67,25 @@ class MobileSessionTests(unittest.TestCase):
             self.assertEqual(state["inputs"][0]["display_name"], "手机录音.m4a")
             self.assertEqual([row["name"] for row in state["outputs"]], ["phone-audio"])
             self.assertEqual(state["outputs"][0]["display_name"], "手机录音")
+
+    def test_mobile_history_persists_and_reloads(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            history_file = Path(temp_dir) / ".mobile_history.json"
+            session_id = "session_persistent01"
+            with patch.object(app_server, "MOBILE_HISTORY_FILE", history_file):
+                app_server.mobile_session(session_id)
+                app_server.record_mobile_upload(session_id, "recording.m4a", "朋友的录音.m4a")
+                self.assertTrue(history_file.exists())
+
+                app_server.MOBILE_SESSIONS.clear()
+                app_server.load_mobile_sessions()
+                session = app_server.mobile_session(session_id, create=False)
+
+            self.assertIsNotNone(session)
+            self.assertEqual(
+                app_server.mobile_display_names(session),
+                {"recording.m4a": "朋友的录音.m4a"},
+            )
 
     def test_mobile_upload_uses_unique_internal_name_on_collision(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

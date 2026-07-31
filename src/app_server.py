@@ -34,7 +34,8 @@ YOUTUBE_PLAYLISTS = {
     "favorites": "https://www.youtube.com/playlist?list=FL",
 }
 MOBILE_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]{16,80}$")
-MOBILE_SESSION_TTL_SECONDS = 24 * 60 * 60
+MOBILE_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+MOBILE_HISTORY_FILE = ROOT / ".mobile_history.json"
 MOBILE_SESSIONS_LOCK = threading.Lock()
 MOBILE_SESSIONS: dict[str, dict[str, object]] = {}
 
@@ -435,6 +436,31 @@ def valid_mobile_session_id(value: str) -> bool:
     return bool(MOBILE_SESSION_RE.fullmatch(value))
 
 
+def load_mobile_sessions() -> None:
+    if not MOBILE_HISTORY_FILE.exists():
+        return
+    try:
+        raw = json.loads(MOBILE_HISTORY_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(raw, dict):
+        return
+    with MOBILE_SESSIONS_LOCK:
+        MOBILE_SESSIONS.clear()
+        for session_id, value in raw.items():
+            if valid_mobile_session_id(str(session_id)) and isinstance(value, dict):
+                MOBILE_SESSIONS[str(session_id)] = value
+
+
+def save_mobile_sessions_locked() -> None:
+    temporary = MOBILE_HISTORY_FILE.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(MOBILE_SESSIONS, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    temporary.replace(MOBILE_HISTORY_FILE)
+
+
 def mobile_session(session_id: str, *, create: bool = True) -> dict[str, object] | None:
     if not valid_mobile_session_id(session_id):
         return None
@@ -448,6 +474,8 @@ def mobile_session(session_id: str, *, create: bool = True) -> dict[str, object]
         ]
         for key in expired:
             MOBILE_SESSIONS.pop(key, None)
+        if expired:
+            save_mobile_sessions_locked()
 
         session = MOBILE_SESSIONS.get(session_id)
         if session is None and create:
@@ -458,6 +486,45 @@ def mobile_session(session_id: str, *, create: bool = True) -> dict[str, object]
             }
             MOBILE_SESSIONS[session_id] = session
         return session
+
+
+def mobile_display_names(session: dict[str, object]) -> dict[str, str]:
+    raw_inputs = session.get("inputs", {})
+    if not isinstance(raw_inputs, dict):
+        return {}
+    names: dict[str, str] = {}
+    for name, metadata in raw_inputs.items():
+        if isinstance(metadata, dict):
+            display_name = metadata.get("display_name", name)
+        else:
+            display_name = metadata
+        names[str(name)] = str(display_name or name)
+    return names
+
+
+def record_mobile_upload(session_id: str, actual_name: str, display_name: str) -> None:
+    with MOBILE_SESSIONS_LOCK:
+        session = MOBILE_SESSIONS.get(session_id)
+        if session is None:
+            return
+        inputs = session.setdefault("inputs", {})
+        if not isinstance(inputs, dict):
+            inputs = {}
+            session["inputs"] = inputs
+        inputs[actual_name] = {
+            "display_name": display_name,
+            "uploaded_at": time.time(),
+        }
+        save_mobile_sessions_locked()
+
+
+def record_mobile_task(session_id: str, started_at: object) -> None:
+    with MOBILE_SESSIONS_LOCK:
+        session = MOBILE_SESSIONS.get(session_id)
+        if session is None:
+            return
+        session["task_started_at"] = started_at
+        save_mobile_sessions_locked()
 
 
 def mobile_upload_name(filename: str, session_id: str) -> str:
@@ -482,9 +549,7 @@ def mobile_session_state(session_id: str) -> dict[str, object] | None:
     if session is None:
         return None
 
-    raw_inputs = session.get("inputs", {})
-    session_inputs = raw_inputs if isinstance(raw_inputs, dict) else {}
-    display_names = {str(name): str(display) for name, display in session_inputs.items()}
+    display_names = mobile_display_names(session)
     inputs = []
     for row in list_inputs():
         name = str(row["name"])
@@ -527,11 +592,11 @@ def mobile_session_state(session_id: str) -> dict[str, object] | None:
     }
 
 
-def mobile_session_owns_output(session_id: str, folder_name: str) -> bool:
+def mobile_session_output(session_id: str, folder_name: str) -> dict[str, object] | None:
     state = mobile_session_state(session_id)
     if state is None:
-        return False
-    return any(str(row["name"]) == folder_name for row in state["outputs"])
+        return None
+    return next((row for row in state["outputs"] if str(row["name"]) == folder_name), None)
 
 
 def selected_names(payload: dict[str, object], key: str) -> list[str]:
@@ -661,14 +726,38 @@ class Handler(BaseHTTPRequestHandler):
             query = parse_qs(parsed.query)
             session_id = str(query.get("session_id", [""])[0])
             folder_name = Path(str(query.get("folder", [""])[0])).name
-            if not folder_name or not mobile_session_owns_output(session_id, folder_name):
+            output = mobile_session_output(session_id, folder_name) if folder_name else None
+            if output is None:
                 self.send_json({"ok": False, "error": "找不到本次会话的文字稿。"}, status=404)
                 return
             transcript = (OUTPUTS_DIR / folder_name / "transcript.txt").resolve()
             if OUTPUTS_DIR.resolve() not in transcript.parents or not transcript.is_file():
                 self.send_json({"ok": False, "error": "文字稿尚未生成。"}, status=404)
                 return
-            self.send_file_download(transcript, f"{folder_name}-文字稿.txt")
+            display_name = str(output.get("display_name") or folder_name)
+            self.send_file_download(transcript, f"{display_name}-文字稿.txt")
+            return
+        if parsed.path == "/api/transcript":
+            query = parse_qs(parsed.query)
+            session_id = str(query.get("session_id", [""])[0])
+            folder_name = Path(str(query.get("folder", [""])[0])).name
+            output = mobile_session_output(session_id, folder_name) if folder_name else None
+            if output is None:
+                self.send_json({"ok": False, "error": "找不到本设备的文字稿。"}, status=404)
+                return
+            transcript = (OUTPUTS_DIR / folder_name / "transcript.txt").resolve()
+            if OUTPUTS_DIR.resolve() not in transcript.parents or not transcript.is_file():
+                self.send_json({"ok": False, "error": "文字稿尚未生成。"}, status=404)
+                return
+            self.send_json(
+                {
+                    "ok": True,
+                    "folder": folder_name,
+                    "display_name": output.get("display_name") or folder_name,
+                    "text": transcript.read_text(encoding="utf-8", errors="replace"),
+                    "mtime": transcript.stat().st_mtime,
+                }
+            )
             return
         if parsed.path == "/api/logs":
             self.send_json(RUNNER.status())
@@ -714,7 +803,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({"ok": False, "error": str(exc)}, status=409)
                 return
             if session is not None:
-                session["task_started_at"] = RUNNER.status()["started_at"]
+                record_mobile_task(session_id, RUNNER.status()["started_at"])
             self.send_json({"ok": True})
             return
         if parsed.path == "/api/youtube-scan":
@@ -864,9 +953,7 @@ class Handler(BaseHTTPRequestHandler):
                 handle.write(data)
             uploaded.append(target.name)
             if session is not None:
-                inputs = session.get("inputs", {})
-                if isinstance(inputs, dict):
-                    inputs[target.name] = filename
+                record_mobile_upload(session_id, target.name, filename)
         state_inputs = mobile_session_state(session_id)["inputs"] if session is not None else list_inputs()
         self.send_json({"ok": True, "uploaded": uploaded, "inputs": state_inputs})
 
@@ -944,6 +1031,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    load_mobile_sessions()
     port = int(os.getenv("LOCAL_TRANSCRIPTION_PORT", "8765"))
     host = os.getenv("LOCAL_TRANSCRIPTION_HOST", "0.0.0.0").strip() or "0.0.0.0"
     server = ThreadingHTTPServer((host, port), Handler)

@@ -2,9 +2,24 @@ const $ = (id) => document.getElementById(id);
 
 const mobileMode = window.matchMedia("(max-width: 760px)").matches
   || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-const mobileSessionId = mobileMode
-  ? (window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-phone`)
-  : "";
+
+function mobileDeviceId() {
+  if (!mobileMode) return "";
+  const storageKey = "localTranscriptionMobileDevice";
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) return saved;
+    const created = window.crypto?.randomUUID?.()
+      || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-phone`;
+    localStorage.setItem(storageKey, created);
+    return created;
+  } catch {
+    return window.crypto?.randomUUID?.()
+      || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-phone`;
+  }
+}
+
+const mobileSessionId = mobileDeviceId();
 document.documentElement.classList.toggle("mobile-mode", mobileMode);
 
 let lastRunning = false;
@@ -17,6 +32,10 @@ const selectedYoutubeUrls = new Set();
 let youtubeHelpPage = 0;
 let youtubeHelpSeenThisSession = false;
 let lastImportedAt = 0;
+let mobileOutputs = [];
+let selectedMobileOutput = "";
+let loadedMobileOutput = "";
+let loadedMobileMtime = 0;
 const youtubeHelpStorageKey = "youtubeImportHelpDismissed";
 
 const taskLabels = {
@@ -355,29 +374,115 @@ function renderFiles(data) {
     .join("") || "<li><span>还没有结果</span><span></span></li>";
 
   bindSelectionClicks();
-  renderMobileDownloads(sortedOutputs);
+  renderMobileHistory(sortedOutputs);
 }
 
-function renderMobileDownloads(outputs) {
+function mobileTranscriptUrls(folderName) {
+  const params = new URLSearchParams({
+    session_id: mobileSessionId,
+    folder: folderName,
+  });
+  return {
+    view: `/api/transcript?${params.toString()}`,
+    download: `/api/download-transcript?${params.toString()}`,
+  };
+}
+
+function clearMobileTranscript() {
+  selectedMobileOutput = "";
+  loadedMobileOutput = "";
+  loadedMobileMtime = 0;
+  $("mobileTranscriptTitle").textContent = "选择一份文字稿";
+  $("mobileTranscriptText").textContent = "";
+  $("mobileTranscriptText").hidden = true;
+  $("mobileTranscriptEmpty").hidden = false;
+  $("mobileTranscriptActions").hidden = true;
+}
+
+function renderMobileHistory(outputs) {
   if (!mobileMode) return;
-  const ready = outputs.filter((folder) => folder.has_transcript);
-  $("mobileResultsCard").hidden = ready.length === 0;
-  $("mobileOutputCount").textContent = `${ready.length} 个结果`;
-  $("mobileDownloads").innerHTML = ready.map((folder) => {
-    const params = new URLSearchParams({
-      session_id: mobileSessionId,
-      folder: folder.name,
-    });
+  mobileOutputs = outputs.filter((folder) => folder.has_transcript);
+  $("mobileOutputCount").textContent = `${mobileOutputs.length} 个结果`;
+  const validNames = new Set(mobileOutputs.map((folder) => folder.name));
+  if (!validNames.has(selectedMobileOutput)) {
+    selectedMobileOutput = mobileOutputs[0]?.name || "";
+    loadedMobileOutput = "";
+  }
+
+  $("mobileHistoryList").innerHTML = mobileOutputs.map((folder) => {
     const displayName = escapeHtml(folder.display_name || folder.name);
+    const selected = folder.name === selectedMobileOutput;
     return `
-      <li>
-        <span>
+      <li class="${selected ? "selected" : ""}">
+        <button type="button" data-mobile-output="${escapeHtml(folder.name)}">
           <strong>${displayName}</strong>
-          <small>文字稿已生成</small>
-        </span>
-        <a class="glow-btn mobile-download-btn" href="/api/download-transcript?${params.toString()}">下载文字稿</a>
+          <small>${selected ? "正在查看" : "点击查看文字稿"}</small>
+        </button>
       </li>`;
-  }).join("");
+  }).join("") || "<li class=\"empty\">还没有历史记录</li>";
+
+  document.querySelectorAll("[data-mobile-output]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMobileOutput = button.dataset.mobileOutput || "";
+      loadedMobileOutput = "";
+      renderMobileHistory(mobileOutputs);
+    });
+  });
+
+  if (!selectedMobileOutput) {
+    clearMobileTranscript();
+    return;
+  }
+  const selected = mobileOutputs.find((folder) => folder.name === selectedMobileOutput);
+  if (selected && (loadedMobileOutput !== selected.name || loadedMobileMtime !== selected.mtime)) {
+    loadMobileTranscript().catch((error) => showProcess(error.message, "error"));
+  }
+}
+
+async function loadMobileTranscript(force = false) {
+  const folder = mobileOutputs.find((item) => item.name === selectedMobileOutput);
+  if (!folder) {
+    clearMobileTranscript();
+    return;
+  }
+  if (!force && loadedMobileOutput === folder.name && loadedMobileMtime === folder.mtime) return;
+
+  const requestedFolder = folder.name;
+  const data = await api(mobileTranscriptUrls(requestedFolder).view);
+  if (selectedMobileOutput !== requestedFolder) return;
+  loadedMobileOutput = requestedFolder;
+  loadedMobileMtime = folder.mtime;
+  $("mobileTranscriptTitle").textContent = data.display_name || folder.display_name || folder.name;
+  $("mobileTranscriptText").textContent = data.text || "";
+  $("mobileTranscriptText").hidden = false;
+  $("mobileTranscriptEmpty").hidden = true;
+  $("mobileTranscriptActions").hidden = false;
+  $("downloadMobileTranscript").href = mobileTranscriptUrls(requestedFolder).download;
+}
+
+async function copyMobileTranscript() {
+  const text = $("mobileTranscriptText").textContent;
+  if (!text) return;
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      copied = true;
+    }
+  } catch {
+  }
+  if (!copied) {
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+    field.select();
+    copied = document.execCommand("copy");
+    field.remove();
+  }
+  if (!copied) throw new Error("复制失败，请长按文字稿手动选择复制。");
+  showProcess("文字稿已复制", "success");
 }
 
 function renderSettings(settings) {
@@ -405,6 +510,9 @@ function renderTask(task) {
 
   if (lastRunning && !running) {
     showProcess(task.returncode === 0 ? "任务已完成" : "任务失败，请查看提示", task.returncode === 0 ? "success" : "error");
+    if (mobileMode && task.returncode === 0) {
+      switchMobileView("results");
+    }
   }
 
   const done = !running && task.returncode === 0;
@@ -559,6 +667,7 @@ function switchView(name) {
   $("transcribeView").classList.toggle("active", !post && !youtube);
   $("youtubeView").classList.toggle("active", youtube);
   $("postprocessView").classList.toggle("active", post);
+  $("mobileResultsView").classList.remove("active");
   $("showTranscribe").classList.toggle("active", !post && !youtube);
   $("showYoutube").classList.toggle("active", youtube);
   $("showPostprocess").classList.toggle("active", post);
@@ -566,6 +675,21 @@ function switchView(name) {
   if (youtube) {
     maybeOpenYoutubeHelp();
     loadImportedYoutubeItems({ quiet: true }).catch(() => {});
+  }
+}
+
+function switchMobileView(name) {
+  const results = name === "results";
+  $("transcribeView").classList.toggle("active", !results);
+  $("mobileResultsView").classList.toggle("active", results);
+  $("showTranscribe").classList.toggle("active", !results);
+  $("showMobileResults").classList.toggle("active", results);
+  if (results) {
+    refresh()
+      .then(() => loadMobileTranscript())
+      .catch((error) => showProcess(error.message, "error"));
+  } else {
+    moveStatusPanel("transcribe");
   }
 }
 
@@ -702,7 +826,10 @@ $("goPostprocess").addEventListener("click", (event) => {
   switchView("postprocess");
   window.scrollTo({ top: 0, behavior: "auto" });
 });
-$("showTranscribe").addEventListener("click", () => switchView("transcribe"));
+$("showTranscribe").addEventListener("click", () => {
+  mobileMode ? switchMobileView("transcribe") : switchView("transcribe");
+});
+$("showMobileResults").addEventListener("click", () => switchMobileView("results"));
 $("showYoutube").addEventListener("click", () => switchView("youtube"));
 $("showPostprocess").addEventListener("click", () => switchView("postprocess"));
 $("returnToTranscribe").addEventListener("click", () => {
@@ -730,6 +857,18 @@ $("nextYoutubeHelp").addEventListener("click", () => {
 });
 $("youtubeHelpDontShow").addEventListener("change", updateYoutubeHelpBubble);
 $("refreshBtn").addEventListener("click", refresh);
+$("refreshMobileHistory").addEventListener("click", async () => {
+  try {
+    await refresh();
+    await loadMobileTranscript(true);
+    showProcess("历史记录已刷新", "success");
+  } catch (error) {
+    showProcess(error.message, "error");
+  }
+});
+$("copyMobileTranscript").addEventListener("click", () => {
+  copyMobileTranscript().catch((error) => showProcess(error.message, "error"));
+});
 $("stopBtn").addEventListener("click", async () => {
   await api("/api/stop", { method: "POST" });
   showProcess("已请求停止当前任务");
@@ -779,7 +918,7 @@ dropZone.addEventListener("drop", (event) => {
 updateRouteSelection();
 if (mobileMode) {
   $("pageSubtitle").textContent = "上传音频或视频，在线转写后直接下载文字稿。";
-  switchView("transcribe");
+  switchMobileView("transcribe");
 }
 const initialParams = new URLSearchParams(window.location.search);
 if (!mobileMode && initialParams.get("view") === "youtube") {

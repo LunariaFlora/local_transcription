@@ -27,6 +27,8 @@ compressed_audio/
 browser_extension.crx
 backups/
 .download_ingest_state.json
+.mobile_history.json
+.mobile_history.tmp
 
 # OS/editor noise
 .DS_Store
