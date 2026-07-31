@@ -12,7 +12,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from settings import load_settings, save_settings
 
@@ -33,6 +33,10 @@ YOUTUBE_PLAYLISTS = {
     "liked": "https://www.youtube.com/playlist?list=LL",
     "favorites": "https://www.youtube.com/playlist?list=FL",
 }
+MOBILE_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]{16,80}$")
+MOBILE_SESSION_TTL_SECONDS = 24 * 60 * 60
+MOBILE_SESSIONS_LOCK = threading.Lock()
+MOBILE_SESSIONS: dict[str, dict[str, object]] = {}
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -427,6 +431,109 @@ def list_outputs() -> list[dict[str, object]]:
     return rows
 
 
+def valid_mobile_session_id(value: str) -> bool:
+    return bool(MOBILE_SESSION_RE.fullmatch(value))
+
+
+def mobile_session(session_id: str, *, create: bool = True) -> dict[str, object] | None:
+    if not valid_mobile_session_id(session_id):
+        return None
+
+    now = time.time()
+    with MOBILE_SESSIONS_LOCK:
+        expired = [
+            key
+            for key, value in MOBILE_SESSIONS.items()
+            if now - float(value.get("created_at", now)) > MOBILE_SESSION_TTL_SECONDS
+        ]
+        for key in expired:
+            MOBILE_SESSIONS.pop(key, None)
+
+        session = MOBILE_SESSIONS.get(session_id)
+        if session is None and create:
+            session = {
+                "created_at": now,
+                "inputs": {},
+                "task_started_at": None,
+            }
+            MOBILE_SESSIONS[session_id] = session
+        return session
+
+
+def mobile_upload_name(filename: str, session_id: str) -> str:
+    path = Path(filename)
+    candidate = path.name
+    stem = path.stem or "mobile-upload"
+    suffix = path.suffix
+    if not (INPUTS_DIR / candidate).exists() and not has_transcript_for_stem(stem):
+        return candidate
+
+    short_id = session_id[:8]
+    candidate = f"{stem}--phone-{short_id}{suffix}"
+    index = 2
+    while (INPUTS_DIR / candidate).exists() or has_transcript_for_stem(Path(candidate).stem):
+        candidate = f"{stem}--phone-{short_id}-{index}{suffix}"
+        index += 1
+    return candidate
+
+
+def mobile_session_state(session_id: str) -> dict[str, object] | None:
+    session = mobile_session(session_id)
+    if session is None:
+        return None
+
+    raw_inputs = session.get("inputs", {})
+    session_inputs = raw_inputs if isinstance(raw_inputs, dict) else {}
+    display_names = {str(name): str(display) for name, display in session_inputs.items()}
+    inputs = []
+    for row in list_inputs():
+        name = str(row["name"])
+        if name not in display_names:
+            continue
+        inputs.append({**row, "display_name": display_names[name]})
+
+    stems = sorted({Path(name).stem for name in display_names}, key=len, reverse=True)
+    created_at = float(session.get("created_at", 0.0))
+    outputs = []
+    for row in list_outputs():
+        folder_name = str(row["name"])
+        if float(row["mtime"]) + 2 < created_at:
+            continue
+        source_stem = next(
+            (stem for stem in stems if folder_name == stem or folder_name.startswith(f"{stem}--")),
+            None,
+        )
+        if source_stem is None:
+            continue
+        original = display_names.get(next((name for name in display_names if Path(name).stem == source_stem), ""), source_stem)
+        outputs.append({**row, "display_name": Path(original).stem})
+
+    task = RUNNER.status()
+    if session.get("task_started_at") != task.get("started_at"):
+        task = {
+            "running": False,
+            "name": None,
+            "started_at": None,
+            "returncode": None,
+            "logs": [],
+        }
+    return {
+        "settings": load_settings(),
+        "inputs": inputs,
+        "outputs": outputs,
+        "task": task,
+        "network": network_state(),
+        "mobile_session": True,
+    }
+
+
+def mobile_session_owns_output(session_id: str, folder_name: str) -> bool:
+    state = mobile_session_state(session_id)
+    if state is None:
+        return False
+    return any(str(row["name"]) == folder_name for row in state["outputs"])
+
+
 def selected_names(payload: dict[str, object], key: str) -> list[str]:
     value = payload.get(key)
     if not isinstance(value, list):
@@ -525,12 +632,21 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Mobile-Session")
         self.end_headers()
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/state":
+            query = parse_qs(parsed.query)
+            session_id = str(query.get("session_id", [""])[0])
+            if query.get("mobile", [""])[0] == "1":
+                state = mobile_session_state(session_id)
+                if state is None:
+                    self.send_json({"ok": False, "error": "无效的手机会话。"}, status=400)
+                else:
+                    self.send_json(state)
+                return
             self.send_json(
                 {
                     "settings": load_settings(),
@@ -540,6 +656,19 @@ class Handler(BaseHTTPRequestHandler):
                     "network": network_state(),
                 }
             )
+            return
+        if parsed.path == "/api/download-transcript":
+            query = parse_qs(parsed.query)
+            session_id = str(query.get("session_id", [""])[0])
+            folder_name = Path(str(query.get("folder", [""])[0])).name
+            if not folder_name or not mobile_session_owns_output(session_id, folder_name):
+                self.send_json({"ok": False, "error": "找不到本次会话的文字稿。"}, status=404)
+                return
+            transcript = (OUTPUTS_DIR / folder_name / "transcript.txt").resolve()
+            if OUTPUTS_DIR.resolve() not in transcript.parents or not transcript.is_file():
+                self.send_json({"ok": False, "error": "文字稿尚未生成。"}, status=404)
+                return
+            self.send_file_download(transcript, f"{folder_name}-文字稿.txt")
             return
         if parsed.path == "/api/logs":
             self.send_json(RUNNER.status())
@@ -562,12 +691,30 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/api/run":
             payload = self.read_json()
+            session_id = self.mobile_session_id()
+            session = mobile_session(session_id, create=False) if session_id else None
+            if session_id and session is None:
+                self.send_json({"ok": False, "error": "手机会话已失效，请刷新页面。"}, status=400)
+                return
+            if session is not None:
+                task = str(payload.get("task"))
+                if task not in {"api", "api-tingwu"}:
+                    self.send_json({"ok": False, "error": "手机端仅支持在线转写。"}, status=400)
+                    return
+                owned = session.get("inputs", {})
+                owned_names = set(owned) if isinstance(owned, dict) else set()
+                files = selected_names(payload, "files")
+                if not files or any(name not in owned_names for name in files):
+                    self.send_json({"ok": False, "error": "请选择本次上传的文件。"}, status=400)
+                    return
             name, args = task_args(str(payload.get("task")), payload)
             try:
                 RUNNER.start(name, args)
             except Exception as exc:
                 self.send_json({"ok": False, "error": str(exc)}, status=409)
                 return
+            if session is not None:
+                session["task_started_at"] = RUNNER.status()["started_at"]
             self.send_json({"ok": True})
             return
         if parsed.path == "/api/youtube-scan":
@@ -689,6 +836,11 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         uploaded: list[str] = []
+        session_id = self.mobile_session_id()
+        session = mobile_session(session_id) if session_id else None
+        if session_id and session is None:
+            self.send_json({"ok": False, "error": "无效的手机会话。"}, status=400)
+            return
 
         for raw_part in body.split(b"--" + boundary):
             if not raw_part or raw_part in {b"--\r\n", b"--"}:
@@ -706,11 +858,17 @@ class Handler(BaseHTTPRequestHandler):
                 continue
             if data.endswith(b"\r\n"):
                 data = data[:-2]
-            target = INPUTS_DIR / filename
+            target_name = mobile_upload_name(filename, session_id) if session is not None else filename
+            target = INPUTS_DIR / target_name
             with target.open("wb") as handle:
                 handle.write(data)
             uploaded.append(target.name)
-        self.send_json({"ok": True, "uploaded": uploaded, "inputs": list_inputs()})
+            if session is not None:
+                inputs = session.get("inputs", {})
+                if isinstance(inputs, dict):
+                    inputs[target.name] = filename
+        state_inputs = mobile_session_state(session_id)["inputs"] if session is not None else list_inputs()
+        self.send_json({"ok": True, "uploaded": uploaded, "inputs": state_inputs})
 
     def handle_youtube_cookies_upload(self) -> None:
         content_type = self.headers.get("Content-Type", "")
@@ -755,6 +913,19 @@ class Handler(BaseHTTPRequestHandler):
         data = path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def mobile_session_id(self) -> str:
+        return self.headers.get("X-Mobile-Session", "").strip()
+
+    def send_file_download(self, path: Path, download_name: str) -> None:
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quote(download_name)}")
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

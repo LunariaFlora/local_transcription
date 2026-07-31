@@ -36,6 +36,8 @@ http://127.0.0.1:8765
 
 To use the computer as a server for a phone on the same Wi-Fi, keep the frontend running and open Settings to copy the displayed phone URL. The server listens on the local network by default. Windows may ask whether Python can communicate on private networks; allow private-network access. The computer must remain powered on while the phone uses the app.
 
+The phone interface is intentionally simpler than the desktop interface. Each page load starts a blank temporary session that only shows files uploaded during that session. It exposes online transcription only, hides YouTube, local CUDA transcription, post-processing, desktop history, and Explorer controls, and provides a direct `下载文字稿` button when `transcript.txt` is ready. Reloading the phone page clears the visible session list, but the source files and results remain stored on the computer under `inputs` and `outputs`.
+
 Set `LOCAL_TRANSCRIPTION_HOST=127.0.0.1` before launching if you want to disable local-network access and return to computer-only mode.
 
 There is also a desktop launcher:

@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <h1>音频转写工作台</h1>
-          <p class="subcopy">把视频或音频放进来，选用在线或本地方式进行转写。</p>
+          <p id="pageSubtitle" class="subcopy">把视频或音频放进来，选用在线或本地方式进行转写。</p>
         </div>
         <div class="top-actions">
           <button id="settingsBtn" class="icon-btn" title="设置" aria-label="设置">
@@ -111,6 +111,14 @@
             <button id="refreshBtn" class="ghost-btn">刷新</button>
           </div>
           <ul id="outputsList" class="compact-list outputs"></ul>
+        </article>
+
+        <article id="mobileResultsCard" class="card mobile-results-card reveal" hidden>
+          <div class="section-title">
+            <h3>本次文字稿</h3>
+            <span id="mobileOutputCount">0 个结果</span>
+          </div>
+          <ul id="mobileDownloads" class="mobile-downloads"></ul>
         </article>
       </section>
 

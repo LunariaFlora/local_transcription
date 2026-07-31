@@ -1,5 +1,12 @@
 const $ = (id) => document.getElementById(id);
 
+const mobileMode = window.matchMedia("(max-width: 760px)").matches
+  || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const mobileSessionId = mobileMode
+  ? (window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-phone`)
+  : "";
+document.documentElement.classList.toggle("mobile-mode", mobileMode);
+
 let lastRunning = false;
 let manualInputSelection = false;
 let manualOutputSelection = false;
@@ -55,7 +62,9 @@ function formatBytes(bytes) {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, options);
+  const headers = new Headers(options.headers || {});
+  if (mobileMode) headers.set("X-Mobile-Session", mobileSessionId);
+  const response = await fetch(path, { ...options, headers });
   if (!response.ok) {
     const text = await response.text();
     let message = text || response.statusText;
@@ -167,10 +176,12 @@ function syncDefaultSelections(data) {
 function renderInputItem(file, target) {
   const selected = selectedInputs.has(file.name);
   const status = file.transcribed ? "已转写" : "未转写";
+  const displayName = escapeHtml(file.display_name || file.name);
+  const internalName = escapeHtml(file.name);
   return `
-    <li class="selectable ${selected ? "selected" : ""}" data-kind="${target}" data-name="${file.name}">
+    <li class="selectable ${selected ? "selected" : ""}" data-kind="${target}" data-name="${internalName}">
       <span class="item-main">
-        <strong>${file.name}</strong>
+        <strong>${displayName}</strong>
         <small>${formatBytes(file.size)}</small>
       </span>
       <span class="item-tags">
@@ -183,10 +194,12 @@ function renderInputItem(file, target) {
 function renderOutputItem(folder, target) {
   const selected = selectedOutputs.has(folder.name);
   const status = folder.has_transcript ? "有文字稿" : `${folder.files.length} 个文件`;
+  const displayName = escapeHtml(folder.display_name || folder.name);
+  const internalName = escapeHtml(folder.name);
   return `
-    <li class="selectable ${selected ? "selected" : ""}" data-kind="${target}" data-name="${folder.name}">
+    <li class="selectable ${selected ? "selected" : ""}" data-kind="${target}" data-name="${internalName}">
       <span class="item-main">
-        <strong>${folder.name}</strong>
+        <strong>${displayName}</strong>
         <small>${status}</small>
       </span>
       <span class="item-tags">
@@ -342,6 +355,29 @@ function renderFiles(data) {
     .join("") || "<li><span>还没有结果</span><span></span></li>";
 
   bindSelectionClicks();
+  renderMobileDownloads(sortedOutputs);
+}
+
+function renderMobileDownloads(outputs) {
+  if (!mobileMode) return;
+  const ready = outputs.filter((folder) => folder.has_transcript);
+  $("mobileResultsCard").hidden = ready.length === 0;
+  $("mobileOutputCount").textContent = `${ready.length} 个结果`;
+  $("mobileDownloads").innerHTML = ready.map((folder) => {
+    const params = new URLSearchParams({
+      session_id: mobileSessionId,
+      folder: folder.name,
+    });
+    const displayName = escapeHtml(folder.display_name || folder.name);
+    return `
+      <li>
+        <span>
+          <strong>${displayName}</strong>
+          <small>文字稿已生成</small>
+        </span>
+        <a class="glow-btn mobile-download-btn" href="/api/download-transcript?${params.toString()}">下载文字稿</a>
+      </li>`;
+  }).join("");
 }
 
 function renderSettings(settings) {
@@ -377,7 +413,10 @@ function renderTask(task) {
 }
 
 async function refresh() {
-  const data = await api("/api/state");
+  const statePath = mobileMode
+    ? `/api/state?mobile=1&session_id=${encodeURIComponent(mobileSessionId)}`
+    : "/api/state";
+  const data = await api(statePath);
   renderFiles(data);
   renderSettings(data.settings);
   renderNetwork(data.network);
@@ -475,7 +514,9 @@ async function upload(files) {
   if (!files.length) return;
   const form = new FormData();
   [...files].forEach((file) => form.append("files", file));
-  const response = await fetch("/api/upload", { method: "POST", body: form });
+  const headers = new Headers();
+  if (mobileMode) headers.set("X-Mobile-Session", mobileSessionId);
+  const response = await fetch("/api/upload", { method: "POST", headers, body: form });
   if (!response.ok) {
     showProcess("文件导入失败", "error");
     return;
@@ -736,15 +777,21 @@ dropZone.addEventListener("drop", (event) => {
 });
 
 updateRouteSelection();
+if (mobileMode) {
+  $("pageSubtitle").textContent = "上传音频或视频，在线转写后直接下载文字稿。";
+  switchView("transcribe");
+}
 const initialParams = new URLSearchParams(window.location.search);
-if (initialParams.get("view") === "youtube") {
+if (!mobileMode && initialParams.get("view") === "youtube") {
   switchView("youtube");
   loadImportedYoutubeItems({ quiet: !initialParams.has("imported") }).catch((error) => showProcess(error.message, "error"));
 } else {
   moveStatusPanel("transcribe");
 }
-renderYoutubeItems();
-refreshYoutubeCookieStatus();
-updateYoutubeHelpBubble();
+if (!mobileMode) {
+  renderYoutubeItems();
+  refreshYoutubeCookieStatus();
+  updateYoutubeHelpBubble();
+}
 refresh();
 setInterval(refresh, 2000);
