@@ -34,6 +34,10 @@ Then open:
 http://127.0.0.1:8765
 ```
 
+To use the computer as a server for a phone on the same Wi-Fi, keep the frontend running and open Settings to copy the displayed phone URL. The server listens on the local network by default. Windows may ask whether Python can communicate on private networks; allow private-network access. The computer must remain powered on while the phone uses the app.
+
+Set `LOCAL_TRANSCRIPTION_HOST=127.0.0.1` before launching if you want to disable local-network access and return to computer-only mode.
+
 There is also a desktop launcher:
 
 ```text

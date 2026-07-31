@@ -1109,6 +1109,54 @@ select,
   font-size: 13px;
 }
 
+.mobile-access {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(59, 130, 246, 0.055);
+}
+
+.mobile-access strong,
+.mobile-access span {
+  display: block;
+}
+
+.mobile-access strong {
+  font-size: 14px;
+}
+
+.mobile-access span {
+  margin-top: 5px;
+  color: var(--soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mobile-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-url-row code {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: #bfdbfe;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-url-row .ghost-btn {
+  min-height: 34px;
+  flex: 0 0 auto;
+}
+
 .toast {
   position: fixed;
   right: 24px;
@@ -1264,6 +1312,46 @@ select,
 }
 
 @media (max-width: 640px) {
+  .shell {
+    width: min(calc(100% - 32px), 430px);
+    padding: 16px 0 24px;
+  }
+
+  .topbar {
+    position: relative;
+    min-height: 0;
+  }
+
+  .topbar > div:first-child {
+    padding-right: 96px;
+  }
+
+  h1 {
+    font-size: 32px;
+    letter-spacing: 0;
+    line-height: 1.04;
+  }
+
+  h2,
+  h3 {
+    letter-spacing: 0;
+  }
+
+  .subcopy {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  .view-switch {
+    display: flex;
+    width: 100%;
+  }
+
+  .switch-btn {
+    min-width: 0;
+    flex: 1;
+  }
+
   .transcript-actions {
     grid-template-columns: 1fr;
   }
@@ -1275,12 +1363,169 @@ select,
   }
 
   .top-actions {
-    top: 14px;
-    right: 14px;
+    position: absolute;
+    top: 0;
+    right: 0;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+  }
+
+  .icon-btn svg {
+    width: 23px;
+    height: 23px;
   }
 
   .workbench {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .card,
+  .post-card,
+  .modal-panel {
+    border-radius: 20px;
+  }
+
+  .workbench-grid {
+    gap: 12px;
+  }
+
+  .upload-zone,
+  .route-zone {
+    min-height: 0;
+    border-radius: 18px;
     padding: 14px;
+  }
+
+  .upload-zone,
+  .right-stack {
+    min-height: 0;
+  }
+
+  .right-stack {
+    gap: 12px;
+  }
+
+  .drop-zone {
+    min-height: 156px;
+    border-radius: 16px;
+  }
+
+  .drop-zone strong {
+    font-size: 18px;
+  }
+
+  .upload-zone .compact-list {
+    max-height: 230px;
+  }
+
+  .compact-list {
+    padding-right: 5px;
+  }
+
+  .compact-list li {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .item-main,
+  .item-tags {
+    width: 100%;
+  }
+
+  .item-tags {
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .route-zone .task-status {
+    min-height: 126px;
+    padding: 16px;
+  }
+
+  .route-option,
+  .route-option[data-route="api"],
+  .route-option[data-route="local"] {
+    min-height: 0;
+    align-items: flex-start;
+    border-radius: 16px;
+    padding: 14px;
+  }
+
+  .route-option > span {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .route-option[data-route="api"] .model-picker,
+  .route-option[data-route="local"] .model-picker {
+    position: static;
+    margin-top: 14px;
+    justify-content: flex-start;
+  }
+
+  .model-options {
+    width: 100%;
+  }
+
+  .model-chip,
+  .api-provider-chip {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .results-card,
+  .post-hero,
+  .picker-card,
+  .youtube-card {
+    padding: 14px;
+  }
+
+  .modal {
+    padding: 14px;
+  }
+
+  .modal-panel,
+  .tutorial-panel {
+    width: min(100%, 430px);
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .tutorial-page {
+    padding: 16px;
+  }
+
+  .tutorial-page strong {
+    font-size: 20px;
+    letter-spacing: 0;
+  }
+
+  .tutorial-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mobile-url-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mobile-url-row .ghost-btn {
+    width: 100%;
+  }
+
+  .process-toast {
+    width: min(calc(100vw - 40px), 390px);
+    border-radius: 20px;
+    padding: 18px;
   }
 
   .task-status {

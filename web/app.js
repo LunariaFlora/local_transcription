@@ -352,6 +352,12 @@ function renderSettings(settings) {
   $("autoCloseMinutes").value = settings.auto_close_minutes ?? 30;
 }
 
+function renderNetwork(network = {}) {
+  const phoneUrl = network.phone_url || "暂未获取局域网地址";
+  $("phoneUrl").textContent = phoneUrl;
+  $("copyPhoneUrl").disabled = !network.phone_url;
+}
+
 function renderTask(task) {
   const running = Boolean(task.running);
   $("taskState").textContent = running ? "运行中" : "";
@@ -374,7 +380,26 @@ async function refresh() {
   const data = await api("/api/state");
   renderFiles(data);
   renderSettings(data.settings);
+  renderNetwork(data.network);
   renderTask(data.task);
+}
+
+async function copyPhoneUrl() {
+  const value = $("phoneUrl").textContent.trim();
+  if (!value.startsWith("http")) return;
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    const field = document.createElement("textarea");
+    field.value = value;
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+    field.select();
+    document.execCommand("copy");
+    field.remove();
+  }
+  showProcess("手机访问地址已复制", "success");
 }
 
 function selectedRouteTask() {
@@ -670,6 +695,7 @@ $("stopBtn").addEventListener("click", async () => {
   await refresh();
 });
 $("saveSettings").addEventListener("click", saveSettings);
+$("copyPhoneUrl").addEventListener("click", copyPhoneUrl);
 $("fileInput").addEventListener("change", (event) => upload(event.target.files));
 $("openOutputsBtn").addEventListener("click", () => openFolder("outputs"));
 $("openOutputsBtn2").addEventListener("click", () => openFolder("outputs"));

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -41,6 +42,38 @@ CONTENT_TYPES = {
     ".txt": "text/plain; charset=utf-8",
     ".md": "text/markdown; charset=utf-8",
 }
+
+
+def lan_ip_address() -> str:
+    configured = os.getenv("LOCAL_TRANSCRIPTION_LAN_IP", "").strip()
+    if configured:
+        return configured
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("8.8.8.8", 80))
+            address = str(probe.getsockname()[0])
+            if address and not address.startswith("127."):
+                return address
+    except OSError:
+        pass
+
+    try:
+        address = socket.gethostbyname(socket.gethostname())
+        if address and not address.startswith("127."):
+            return address
+    except OSError:
+        pass
+    return ""
+
+
+def network_state() -> dict[str, str]:
+    port = int(os.getenv("LOCAL_TRANSCRIPTION_PORT", "8765"))
+    address = lan_ip_address()
+    return {
+        "local_url": f"http://127.0.0.1:{port}",
+        "phone_url": f"http://{address}:{port}" if address else "",
+    }
 
 
 def bring_explorer_to_front(folder_name: str) -> bool:
@@ -504,6 +537,7 @@ class Handler(BaseHTTPRequestHandler):
                     "inputs": list_inputs(),
                     "outputs": list_outputs(),
                     "task": RUNNER.status(),
+                    "network": network_state(),
                 }
             )
             return
@@ -740,9 +774,13 @@ class Handler(BaseHTTPRequestHandler):
 
 def main() -> int:
     port = int(os.getenv("LOCAL_TRANSCRIPTION_PORT", "8765"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    host = os.getenv("LOCAL_TRANSCRIPTION_HOST", "0.0.0.0").strip() or "0.0.0.0"
+    server = ThreadingHTTPServer((host, port), Handler)
     url = f"http://127.0.0.1:{port}"
     print(f"Local frontend: {url}")
+    phone_url = network_state()["phone_url"]
+    if host not in {"127.0.0.1", "localhost"} and phone_url:
+        print(f"Phone on the same Wi-Fi: {phone_url}")
     if os.getenv("LOCAL_TRANSCRIPTION_NO_BROWSER") != "1":
         webbrowser.open(url)
     try:
